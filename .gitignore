@@ -1,3 +1,10 @@
+# ENERGIZE
+experiments/
+data/
+config_files/
+grammars/
+energize/train_longer.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
