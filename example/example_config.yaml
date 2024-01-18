@@ -29,7 +29,6 @@ network:
         network_structure: [1, 2]
         levels_back: 1
   learning:
-    train_percentage: 100
     data_splits:
       evo_train: 0.7
       evo_validation: 0.2

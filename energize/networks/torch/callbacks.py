@@ -10,7 +10,7 @@ from typing import Any, Dict, TYPE_CHECKING
 import torch
 
 from energize.misc.constants import METADATA_FILENAME, MODEL_FILENAME, WEIGHTS_FILENAME
-
+from energize.misc.power import PowerConfig
 
 if TYPE_CHECKING:
     from energize.networks.torch.trainers import Trainer
@@ -128,3 +128,19 @@ class EarlyStoppingCallback(Callback):
         else:
             self.best_score = trainer.validation_loss[-1]
             self.counter = 0
+
+class PowerMeasureCallback(Callback):
+    def __init__(self, power_config: PowerConfig) -> None:
+        self.power_config: PowerConfig = power_config
+
+    def on_train_begin(self, trainer: Trainer) -> None:
+        self.power_config.meter.start(tag="train")
+
+    def on_train_end(self, trainer: Trainer) -> None:
+        self.power_config.meter.stop()
+
+    def on_epoch_begin(self, trainer: Trainer) -> None:
+        pass
+
+    def on_epoch_end(self, trainer: Trainer) -> None:
+        pass

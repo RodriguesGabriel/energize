@@ -8,6 +8,7 @@ from typing import Any, TYPE_CHECKING, Optional
 import torch
 
 from energize.misc.enums import Device
+from energize.misc.power import PowerConfig
 
 if TYPE_CHECKING:
     from torch import nn, Tensor
@@ -15,9 +16,10 @@ if TYPE_CHECKING:
 
 
 class Fitness:
-    def __init__(self, value: float, metric: type[FitnessMetric]) -> None:
+    def __init__(self, value: float, metric: type[FitnessMetric], power_data: dict | None = None) -> None:
         self.value: float = value
         self.metric: type[FitnessMetric] = metric
+        self.power: dict | None = power_data
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Fitness):
@@ -134,7 +136,7 @@ class LossMetric(FitnessMetric):
                 outputs = model(inputs)
                 total_loss += self.loss_function(outputs, labels)/n_batches
         total_loss = float(total_loss_tensor.data)
-        if math.isinf(total_loss) is True or math.isnan(total_loss):
+        if math.isinf(total_loss) or math.isnan(total_loss):
             raise ValueError(f"Invalid loss (inf or NaN): {total_loss}")
         else:
             return total_loss

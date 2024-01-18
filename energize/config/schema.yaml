@@ -126,10 +126,6 @@ properties:
       learning:
         type: object
         properties:
-          train_percentage:
-            type: integer
-            minimum: 1
-            maximum: 100
           learning_type:
             enum: ["supervised"]
           default_train_time:
@@ -151,7 +147,6 @@ properties:
               required:
               - train
         required:
-        - train_percentage
         - learning_type
         - default_train_time
         - data_splits
@@ -160,6 +155,23 @@ properties:
     required:
     - architecture
     - learning
+  energize:
+    type: object
+    properties:
+      measure_power:
+        type: object
+        properties:
+          train:
+            type: boolean
+          test:
+            type: boolean
+          num_measurements_test:
+            type: integer
+            minimum: 1
+        additionalProperties: False
+        required:
+        - train
+        - test
 additionalProperties: False
 required:
 - checkpoints_path

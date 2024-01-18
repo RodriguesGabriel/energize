@@ -82,7 +82,7 @@ def load_partitioned_dataset(seed: int,
             targets) == "torch.Tensor" else Tensor(targets)
         train_indices: List[int] = list(range(len(targets)))  # * aug_factor
 
-        stratify: Any = targets_tensor if enable_stratify is True else None
+        stratify: Any = targets_tensor if enable_stratify else None
         train_idx, test_idx = train_test_split(train_indices,
                                                test_size=proportions[DatasetType.EVO_TEST],
                                                shuffle=True,
@@ -91,7 +91,7 @@ def load_partitioned_dataset(seed: int,
         subset_dict[DatasetType.EVO_TEST] = Subset(evo_test_data, test_idx)
 
         if DatasetType.EVO_VALIDATION in proportions.keys():
-            stratify = targets_tensor[train_idx] if enable_stratify is True else None
+            stratify = targets_tensor[train_idx] if enable_stratify else None
             real_validation_proportion: float = \
                 proportions[DatasetType.EVO_VALIDATION] / \
                 (1 - proportions[DatasetType.EVO_TEST])

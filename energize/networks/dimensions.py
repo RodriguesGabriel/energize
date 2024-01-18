@@ -47,7 +47,7 @@ class Dimensions:
                              layer.layer_parameters['stride']) + padding_w * 2
             return cls(out_channels, height, width)
         if layer.layer_type in [LayerType.POOL_AVG, LayerType.POOL_MAX]:
-            assert isinstance(layer.layer_parameters['padding'], str) is True
+            assert isinstance(layer.layer_parameters['padding'], str)
             out_channels = input_dimensions.channels
             kernel_size = layer.layer_parameters['kernel_size']
             if layer.layer_parameters['padding'] == "valid":

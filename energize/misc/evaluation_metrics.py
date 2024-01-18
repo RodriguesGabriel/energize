@@ -18,6 +18,7 @@ class EvaluationMetrics:
     n_epochs: int
     total_epochs_trained: int
     max_epochs_reached: bool
+    power: dict | None
 
     @classmethod
     def default(cls, fitness: Fitness) -> "EvaluationMetrics":
@@ -31,7 +32,8 @@ class EvaluationMetrics:
             losses={},
             n_epochs=0,
             total_epochs_trained=0,
-            max_epochs_reached=False
+            max_epochs_reached=False,
+            power=None
         )
 
     @classmethod
@@ -51,8 +53,9 @@ class EvaluationMetrics:
             f"total_epochs_trained: {self.total_epochs_trained},  " + \
             f"accuracy: {round(self.accuracy, 5) if self.accuracy is not None else self.accuracy},  " + \
             f"fitness: {self.fitness},  " + \
-            f"losses: {self.losses}),  " + \
-            f"max_epochs_reached: {self.max_epochs_reached}"
+            f"losses: {self.losses},  " + \
+            f"power: {self.power},  " + \
+            f"max_epochs_reached: {self.max_epochs_reached})"
 
     # To be used in case an individual gets extra training (through mutation or selection)
     def __add__(self, other: EvaluationMetrics) -> EvaluationMetrics:
@@ -78,5 +81,6 @@ class EvaluationMetrics:
             total_epochs_trained=self.total_epochs_trained + other.n_epochs,
             losses={k: self.losses[k] + other.losses[k]
                     for k in self.losses.keys()},
-            max_epochs_reached=max_epochs_reached
+            max_epochs_reached=max_epochs_reached,
+            power=other.power
         )
