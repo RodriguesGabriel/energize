@@ -12,7 +12,7 @@ from energize.evolution import Individual
 from energize.misc.constants import MODEL_FILENAME
 from energize.misc.evaluation_metrics import EvaluationMetrics
 from energize.misc.constants import OVERALL_BEST_FOLDER, STATS_FOLDER_NAME
-
+from energize.misc.power import PowerConfig
 
 if TYPE_CHECKING:
     from energize.config import Config
@@ -39,13 +39,17 @@ class RestoreCheckpoint:
                config,
                grammar,
                is_gpu_run,
-               possible_checkpoint=self.restore_checkpoint(config['checkpoints_path'], run))
+               possible_checkpoint=self.restore_checkpoint(config, run))
 
-    def restore_checkpoint(self, save_path: str, run: int) -> Optional[Checkpoint]:
-        checkpoint_path = os.path.join(save_path, f"run_{run}", "checkpoint.pkl")
+    def restore_checkpoint(self, config: Config, run: int) -> Optional[Checkpoint]:
+        checkpoint_path = os.path.join(
+            config['checkpoints_path'], f"run_{run}", "checkpoint.pkl")
         if os.path.exists(checkpoint_path):
             with open(checkpoint_path, "rb") as handle_checkpoint:
                 checkpoint: Checkpoint = dill.load(handle_checkpoint)
+            if config["energize"] is not None:
+                checkpoint.evaluator.power_config = PowerConfig(
+                    config['energize'])
             return checkpoint
         else:
             return None
@@ -57,10 +61,15 @@ class SaveCheckpoint:
 
     def __call__(self, *args: Any, **kwargs: Any) -> Checkpoint:
         new_checkpoint: Checkpoint = self.f(*args)
+        # we need to remove the power config from the checkpoint to save it
+        temp = new_checkpoint.evaluator.power_config
+        new_checkpoint.evaluator.power_config = None
         # we assume the config is the last parameter in the function decorated
         self._save_checkpoint(new_checkpoint,
                               args[-1]['checkpoints_path'],
                               args[-1]['evolutionary']['generations'])
+        # restore the power config
+        new_checkpoint.evaluator.power_config = temp
         return new_checkpoint
 
     def _save_checkpoint(self, checkpoint: Checkpoint, save_path: str, max_generations: int) -> None:

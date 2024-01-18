@@ -7,3 +7,4 @@ pytest==7.4.2
 PyYAML==6.0.1
 scikit-learn==1.3.0
 torchvision==0.15.2
+pyJoules[nvidia]==0.5.1

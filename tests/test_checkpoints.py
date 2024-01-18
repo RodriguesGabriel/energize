@@ -67,7 +67,7 @@ class Test(unittest.TestCase):
         expected_checkpoint: Checkpoint = Checkpoint(
             run, None, None, None, 0, 0, None, None, 0, [], fake_parent)
         self.assertEqual(expected_checkpoint, self.restore_checkpoint.restore_checkpoint(
-            "tests/resources", run))
+            {"checkpoints_path": "tests/resources", "energize": None}, run))
 
     def test_build_individual_path(self):
         folder_name: str = "test_dir"

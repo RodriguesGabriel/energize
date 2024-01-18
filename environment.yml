@@ -18,3 +18,4 @@ dependencies:
   - coverage=7.3.2
   - pytest=7.4.2
   - parameterized=0.9.0
+  - pyJoules[nvidia]==0.5.1

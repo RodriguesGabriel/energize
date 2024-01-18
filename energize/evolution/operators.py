@@ -50,7 +50,7 @@ def mutation_dsge(layer: 'Genotype', grammar: Grammar) -> None:
                 symbol_to_mutate.attribute is not None and \
                 symbol_to_mutate.attribute.values is not None
             is_neutral_mutation: bool = True
-            while is_neutral_mutation is True:
+            while is_neutral_mutation:
                 current_values = tuple(symbol_to_mutate.attribute.values)
                 symbol_to_mutate.attribute.generate()
                 new_values = tuple(symbol_to_mutate.attribute.values)
