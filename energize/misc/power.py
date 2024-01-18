@@ -27,7 +27,7 @@ def measure_power(power_config: PowerConfig, func, func_args):
     durations = [0] * n
     for i in range(n):
         # start measuring power usage
-        power_config.meter.start(tag="predict")
+        power_config.meter.start(tag="test")
         # execute function
         output = func(*func_args)
         # stop measuring power usage

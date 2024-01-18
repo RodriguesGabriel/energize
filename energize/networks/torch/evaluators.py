@@ -37,7 +37,8 @@ logger = logging.getLogger(__name__)
 def create_fitness_metric(metric_name: FitnessMetricName,
                           evaluator_type: type['BaseEvaluator'],
                           batch_size: Optional[int] = None,
-                          loss_function: Optional[Any] = None) -> FitnessMetric:
+                          loss_function: Optional[Any] = None,
+                          power_config: PowerConfig = None) -> FitnessMetric:
     fitness_metric: FitnessMetric
     if metric_name.value not in FitnessMetricName.enum_values():
         raise ValueError(
@@ -49,6 +50,10 @@ def create_fitness_metric(metric_name: FitnessMetricName,
         if evaluator_type is LegacyEvaluator:
             assert loss_function is not None
             fitness_metric = LossMetric(loss_function)
+    elif metric_name is FitnessMetricName.POWER:
+        fitness_metric = PowerMetric(power_config)
+    elif metric_name is FitnessMetricName.ENERGY:
+        fitness_metric = PowerMetric(power_config, True)
     else:
         raise ValueError(f"Unexpected evaluator type: [{evaluator_type}]")
     return fitness_metric
@@ -345,38 +350,40 @@ class LegacyEvaluator(BaseEvaluator):
                                                               self.power_config))
             trainer.train()
 
+            power_data = {}
             # get training power measurements
             if self.power_config.config['measure_power']['train']:
                 power_trace = self.power_config.meter.get_trace()[0]
-            else:
-                power_trace = None
+                power_data['train'] = {
+                    "duration": power_trace.duration,
+                    "energy": sum(power_trace.energy.values()) / 1000,
+                    "power": sum(power_trace.energy.values()) / 1000 / power_trace.duration,
+                }
 
             fitness_metric: FitnessMetric = create_fitness_metric(self.fitness_metric_name,
                                                                   type(self),
-                                                                  loss_function=loss_function)
+                                                                  loss_function=loss_function,
+                                                                  power_config=self.power_config)
 
             if self.power_config.config['measure_power']['test']:
-                fitness_metric_value, power_data_test = measure_power(
-                    self.power_config, fitness_metric.compute_metric, (torch_model, test_loader, device))
-            else:
-                fitness_metric_value = fitness_metric.compute_metric(
-                    torch_model, test_loader, device)
+                if isinstance(fitness_metric, PowerMetric):
+                    power_data['test'] = fitness_metric.power_data
+                else:
+                    power_metric = PowerMetric(self.power_config)
+                    power_metric.compute_metric(
+                        torch_model, test_loader, device)
+                    power_data['test'] = power_metric.power_data
+
+            fitness_metric_value = fitness_metric.compute_metric(
+                torch_model, test_loader, device)
 
             fitness_value = Fitness(fitness_metric_value, type(fitness_metric))
+
             accuracy: Optional[float]
             if fitness_metric is AccuracyMetric:
                 accuracy = None
             else:
                 accuracy = AccuracyMetric().compute_metric(torch_model, test_loader, device)
-
-            power_data = {}
-            if self.power_config.config['measure_power']['train']:
-                power_data['train'] = {
-                    "duration": power_trace.duration,
-                    "energy": sum(power_trace.energy.values())
-                }
-            if self.power_config.config['measure_power']['test']:
-                power_data['test'] = power_data_test
 
             return EvaluationMetrics(
                 is_valid_solution=True,

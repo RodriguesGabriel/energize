@@ -76,14 +76,20 @@ properties:
         - macro_layer
         - train_longer
       fitness_metric:
-        enum: ["accuracy", "loss"]
+        enum: ["accuracy", "loss", "power", "energy"]
+      fitness_function:
+        type: string
     additionalProperties: False
     required:
     - generations
     - lambda
     - max_epochs
     - mutation
-    - fitness_metric
+    oneOf:
+      - required:
+        - fitness_metric
+      - required:
+        - fitness_function
   network:
     type: object
     properties:
