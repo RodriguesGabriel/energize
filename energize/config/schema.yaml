@@ -78,7 +78,34 @@ properties:
       fitness_metric:
         enum: ["accuracy", "loss", "power", "energy"]
       fitness_function:
-        type: string
+        type: array
+        items:
+          type: object
+          properties:
+            metric:
+              enum: ["accuracy", "loss", "power", "energy"]
+            objective:
+              enum: ["maximize", "minimize"]
+            weight:
+              type: number
+            conditions:
+              type: array
+              items:
+                type: object
+                properties:
+                  metric:
+                    enum: ["accuracy", "loss", "power", "energy"]
+                  type:
+                    enum: ["less_than", "greater_than"]
+                  value:
+                    type: number
+                required:
+                - type
+                - value
+          required:
+          - metric
+          - objective
+          - weight
     additionalProperties: False
     required:
     - generations

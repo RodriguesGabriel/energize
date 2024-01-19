@@ -7,13 +7,18 @@ from typing import Any, TYPE_CHECKING, Optional
 
 import numpy as np
 import torch
+from torch.nn.modules import Module
+from torch.utils.data import DataLoader
 
-from energize.misc.enums import Device
+from energize.misc.enums import Device, FitnessMetricName
 from energize.misc.power import PowerConfig
 
 if TYPE_CHECKING:
-    from torch import nn, Tensor
+    from torch import nn
     from torch.utils.data import DataLoader
+
+__all__ = ["Fitness", "FitnessMetric", "AccuracyMetric",
+           "LossMetric", "PowerMetric", "CustomFitnessFunction"]
 
 
 class Fitness:
@@ -184,7 +189,7 @@ class PowerMetric(FitnessMetric):
                 for data in data_loader:
                     inputs, _ = data[0].to(device.value, non_blocking=True), \
                         data[1].to(device.value, non_blocking=True)
-                    _ = model(inputs)
+                    model(inputs)
             # stop measuring power usage
             self.power_config.meter.stop()
             # get power usage data
@@ -231,3 +236,75 @@ class PowerMetric(FitnessMetric):
     @classmethod
     def worst_fitness(cls) -> Fitness:
         return Fitness(float_info.max, cls)
+
+
+class CustomFitnessFunction(FitnessMetric):
+    def __init__(self, fitness_function: list[dict], power_config: PowerConfig, batch_size: int | None = None, loss_function: Any = None) -> None:
+        super().__init__(batch_size, loss_function)
+        self.fitness_function = fitness_function
+        self.power_config = power_config
+
+    def compute_metric(self, model: Module, data_loader: DataLoader, device: Device) -> float:
+        raise NotImplementedError()
+
+    def compute_fitness(self, model: nn.Module, data_loader: DataLoader, device: Device, pre_computed: dict[str, float]) -> float:
+        fitness: float = 0
+        for param in self.fitness_function:
+            metric_value: float = 0
+            if param["metric"] not in pre_computed:
+                from energize.networks.torch.evaluators import create_fitness_metric
+
+                metric = create_fitness_metric(
+                    FitnessMetricName(param["metric"]), power_config=self.power_config)
+                pre_computed[param["metric"]] = metric.compute_metric(
+                    model, data_loader, device)
+
+            metric_value = pre_computed[param["metric"]]
+
+            consider = True
+            if param.get("conditions") is not None:
+                for cond in param["conditions"]:
+                    cond_value: float
+                    if "metric" in cond:
+                        cond_value = pre_computed[cond["metric"]]
+                    else:
+                        cond_value = pre_computed[param["metric"]]
+
+                    if cond["type"] == "greater_than":
+                        consider = consider and cond_value > cond["value"]
+                    elif cond["type"] == "less_than":
+                        consider = consider and cond_value < cond["value"]
+                    else:
+                        raise ValueError(
+                            f"Condition type {cond['type']} not supported")
+
+            if consider:
+                if param["objective"] == "maximize":
+                    fitness += param["weight"] * metric_value
+                elif param["objective"] == "minimize":
+                    fitness += param["weight"] / metric_value
+                else:
+                    raise ValueError(
+                        f"Objective {param['objective']} not supported")
+
+        return fitness
+
+    @classmethod
+    def worse_than(cls, this: Fitness, other: Fitness) -> bool:
+        return this.value < other.value
+
+    @classmethod
+    def better_than(cls, this: Fitness, other: Fitness) -> bool:
+        return this.value > other.value
+
+    @classmethod
+    def worse_or_equal_than(cls, this: Fitness, other: Fitness) -> bool:
+        return this.value <= other.value
+
+    @classmethod
+    def better_or_equal_than(cls, this: Fitness, other: Fitness) -> bool:
+        return this.value >= other.value
+
+    @classmethod
+    def worst_fitness(cls) -> Fitness:
+        return Fitness(-1, cls)

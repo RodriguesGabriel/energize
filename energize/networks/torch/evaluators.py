@@ -12,12 +12,12 @@ from torch.utils.data import DataLoader, Subset
 
 from energize.misc.constants import DATASETS_INFO, MODEL_FILENAME, WEIGHTS_FILENAME
 from energize.misc.enums import Device, FitnessMetricName
-from energize.misc.evaluation_metrics import EvaluationMetrics
-from energize.misc.fitness_metrics import *  # pylint: disable=unused-wildcard-import,wildcard-import
+from energize.misc.evaluation_metrics import *
+from energize.misc.fitness_metrics import *
 from energize.misc.proportions import ProportionsFloat
 from energize.misc.utils import InvalidNetwork
 from energize.misc.phenotype_parser import parse_phenotype, Optimiser
-from energize.misc.power import PowerConfig, measure_power
+from energize.misc.power import PowerConfig
 from energize.networks.torch.callbacks import Callback, EarlyStoppingCallback, \
     ModelCheckpointCallback, TimedStoppingCallback, PowerMeasureCallback
 from energize.networks.torch.dataset_loader import DatasetType, load_partitioned_dataset
@@ -35,36 +35,34 @@ logger = logging.getLogger(__name__)
 
 
 def create_fitness_metric(metric_name: FitnessMetricName,
-                          evaluator_type: type['BaseEvaluator'],
-                          batch_size: Optional[int] = None,
                           loss_function: Optional[Any] = None,
                           power_config: PowerConfig = None) -> FitnessMetric:
     fitness_metric: FitnessMetric
-    if metric_name.value not in FitnessMetricName.enum_values():
-        raise ValueError(
-            f"Invalid fitness metric retrieved from the config: [{metric_name}]")
-    # print(evaluator_type, metric_name)
     if metric_name is FitnessMetricName.ACCURACY:
         fitness_metric = AccuracyMetric()
     elif metric_name is FitnessMetricName.LOSS:
-        if evaluator_type is LegacyEvaluator:
-            assert loss_function is not None
-            fitness_metric = LossMetric(loss_function)
+        assert loss_function is not None
+        fitness_metric = LossMetric(loss_function)
     elif metric_name is FitnessMetricName.POWER:
         fitness_metric = PowerMetric(power_config)
     elif metric_name is FitnessMetricName.ENERGY:
         fitness_metric = PowerMetric(power_config, True)
     else:
-        raise ValueError(f"Unexpected evaluator type: [{evaluator_type}]")
+        raise ValueError(f"Invalid fitness metric: [{metric_name}]")
     return fitness_metric
 
 
 def create_evaluator(dataset_name: str,
-                     fitness_metric_name: FitnessMetricName,
                      run: int,
+                     evo_params: Dict[str, any],
                      learning_params: Dict[str, Any],
                      energize_params: Dict[str, Any],
                      is_gpu_run: bool) -> 'BaseEvaluator':
+
+    fitness_metric_name: FitnessMetricName | None = FitnessMetricName(
+        evo_params['fitness_metric']) if 'fitness_metric' in evo_params else None
+    fitness_function_params: list[dict] | None = evo_params[
+        'fitness_function'] if 'fitness_function' in evo_params else None
 
     train_transformer: Optional[BaseTransformer]
     test_transformer: Optional[BaseTransformer]
@@ -91,6 +89,7 @@ def create_evaluator(dataset_name: str,
         test_transformer = LegacyTransformer(augmentation_params['test'])
         return LegacyEvaluator(dataset_name,
                                fitness_metric_name,
+                               fitness_function_params,
                                run,
                                user_chosen_device,
                                power_config,
@@ -102,7 +101,8 @@ def create_evaluator(dataset_name: str,
 
 class BaseEvaluator(ABC):
     def __init__(self,
-                 fitness_metric_name: FitnessMetricName,
+                 fitness_metric_name: FitnessMetricName | None,
+                 fitness_function_params: list[dict] | None,
                  seed: int,
                  user_chosen_device: Device,
                  dataset: Dict[DatasetType, Subset],
@@ -115,7 +115,10 @@ class BaseEvaluator(ABC):
             dataset : str
                 dataset to be loaded
         """
-        self.fitness_metric_name: FitnessMetricName = fitness_metric_name
+        assert fitness_metric_name is not None or fitness_function_params is not None
+
+        self.fitness_metric_name: FitnessMetricName | None = fitness_metric_name
+        self.fitness_function_params: list[dict] | None = fitness_function_params
         self.seed: int = seed
         self.user_chosen_device: Device = user_chosen_device
         self.dataset = dataset
@@ -129,17 +132,16 @@ class BaseEvaluator(ABC):
         torch.compile(torch_model, mode="reduce-overhead")
 
     @staticmethod
-    def _calculate_invalid_network_fitness(metric_name: FitnessMetricName,
-                                           evaluator_type: type['BaseEvaluator']) -> Fitness:
+    def _calculate_invalid_network_fitness(metric_name: FitnessMetricName | None) -> Fitness:
+        if metric_name is None:
+            return CustomFitnessFunction.worst_fitness()
         if metric_name.value not in FitnessMetricName.enum_values():
             raise ValueError(
                 f"Invalid fitness metric retrieved from the config: [{metric_name}]")
         if metric_name is FitnessMetricName.ACCURACY:
             return AccuracyMetric.worst_fitness()
         if metric_name is FitnessMetricName.LOSS:
-            if evaluator_type is LegacyEvaluator:
-                return LossMetric.worst_fitness()
-            raise ValueError(f"Unexpected evaluator type: [{evaluator_type}]")
+            return LossMetric.worst_fitness()
         raise ValueError("Invalid fitness metric")
 
     def _get_data_loaders(self,
@@ -245,7 +247,8 @@ class BaseEvaluator(ABC):
 class LegacyEvaluator(BaseEvaluator):
     def __init__(self,
                  dataset_name: str,
-                 fitness_metric_name: FitnessMetricName,
+                 fitness_metric_name: FitnessMetricName | None,
+                 fitness_function_params: list[dict] | None,
                  seed: int,
                  user_chosen_device: Device,
                  power_config: PowerConfig | None,
@@ -268,7 +271,7 @@ class LegacyEvaluator(BaseEvaluator):
                                                                       enable_stratify=True,
                                                                       proportions=ProportionsFloat(
                                                                           data_splits))
-        super().__init__(fitness_metric_name, seed,
+        super().__init__(fitness_metric_name, fitness_function_params, seed,
                          user_chosen_device, dataset, power_config)
 
     def evaluate(self,
@@ -360,10 +363,13 @@ class LegacyEvaluator(BaseEvaluator):
                     "power": sum(power_trace.energy.values()) / 1000 / power_trace.duration,
                 }
 
-            fitness_metric: FitnessMetric = create_fitness_metric(self.fitness_metric_name,
-                                                                  type(self),
-                                                                  loss_function=loss_function,
-                                                                  power_config=self.power_config)
+            fitness_metric: FitnessMetric | None = None
+            if self.fitness_metric_name is not None:
+                fitness_metric = create_fitness_metric(self.fitness_metric_name,
+                                                       loss_function=loss_function,
+                                                       power_config=self.power_config)
+                fitness_metric_value = fitness_metric.compute_metric(
+                    torch_model, test_loader, device)
 
             if self.power_config.config['measure_power']['test']:
                 if isinstance(fitness_metric, PowerMetric):
@@ -374,16 +380,27 @@ class LegacyEvaluator(BaseEvaluator):
                         torch_model, test_loader, device)
                     power_data['test'] = power_metric.power_data
 
-            fitness_metric_value = fitness_metric.compute_metric(
-                torch_model, test_loader, device)
-
-            fitness_value = Fitness(fitness_metric_value, type(fitness_metric))
-
             accuracy: Optional[float]
             if fitness_metric is AccuracyMetric:
                 accuracy = None
             else:
                 accuracy = AccuracyMetric().compute_metric(torch_model, test_loader, device)
+
+            if self.fitness_function_params is not None:
+                fitness_function = CustomFitnessFunction(
+                    self.fitness_function_params, power_config=self.power_config)
+
+                pre_computed = {}
+                if accuracy is not None:
+                    pre_computed['accuracy'] = accuracy
+                if self.power_config.config['measure_power']['test']:
+                    pre_computed['energy'] = power_data['test']["energy"]["mean"]
+                    pre_computed['power'] = power_data['test']["power"]["mean"]
+                fitness_value = Fitness(fitness_function.compute_fitness(
+                    torch_model, test_loader, device, pre_computed), type(fitness_function))
+            else:
+                fitness_value = Fitness(
+                    fitness_metric_value, type(fitness_metric))
 
             return EvaluationMetrics(
                 is_valid_solution=True,
@@ -402,5 +419,5 @@ class LegacyEvaluator(BaseEvaluator):
             logger.warning(
                 "Invalid model. Fitness will be computed as invalid individual. Reason: %s", e.message)
             fitness_value = self._calculate_invalid_network_fitness(
-                self.fitness_metric_name, type(self))
+                self.fitness_metric_name)
             return EvaluationMetrics.default(fitness_value)
