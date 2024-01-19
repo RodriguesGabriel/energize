@@ -114,8 +114,8 @@ def mutation(individual: Individual,
     # Train individual for longer - no other mutation is applied
     if random.random() <= train_longer_prob:
         individual_copy.total_allocated_train_time += default_train_time
-        logger.info(f"Individual {individual_copy.id} total train time is going "
-                    f"to be extended to {individual_copy.total_allocated_train_time}")
+        logger.info("Individual %d total train time is going to be extended to %f",
+                    individual_copy.id, individual_copy.total_allocated_train_time)
         return individual_copy
 
     # in case the individual is mutated in any of the structural parameters
@@ -128,102 +128,34 @@ def mutation(individual: Individual,
     for m_idx, module in enumerate(individual_copy.modules):
         # add-layer (duplicate or new)
         for _ in range(random.randint(1, 2)):
-            if len(module.layers) < module.module_configuration.max_expansions and random.random() <= add_layer_prob:
-                if random.random() <= reuse_layer_prob and len(module.layers) > 0:
-                    new_layer = random.choice(module.layers)
-                else:
-                    new_layer = grammar.initialise(module.module_name)
-
-                insert_pos: int = random.randint(0, len(module.layers))
-                # fix connections
-                for _key_ in sorted(module.connections, reverse=True):
-                    if _key_ >= insert_pos:
-                        for value_idx, value in enumerate(module.connections[_key_]):
-                            if value >= insert_pos-1:
-                                module.connections[_key_][value_idx] += 1
-
-                        module.connections[_key_ +
-                                           1] = module.connections.pop(_key_)
-
-                module.layers.insert(insert_pos, new_layer)
-
-                # make connections of the new layer
-                if insert_pos == 0:
-                    module.connections[insert_pos] = [-1]
-                else:
-                    connection_possibilities = list(range(max(0, insert_pos-module.module_configuration.levels_back),
-                                                          insert_pos-1))
-                    if len(connection_possibilities) < module.module_configuration.levels_back-1:
-                        connection_possibilities.append(-1)
-
-                    sample_size = random.randint(
-                        0, len(connection_possibilities))
-
-                    module.connections[insert_pos] = [insert_pos-1]
-                    if sample_size > 0:
-                        module.connections[insert_pos] += random.sample(
-                            connection_possibilities, sample_size)
-
-                logger.info(f"Individual {individual_copy.id} is going to have an extra layer at "
-                            f"Module {m_idx}: {module.module_name}; position {insert_pos}")
+            if random.random() <= add_layer_prob:
+                module.add_layer(individual_copy.id, m_idx,
+                                 grammar, reuse_layer_prob)
         # remove-layer
         for _ in range(random.randint(1, 2)):
-            if len(module.layers) > module.module_configuration.min_expansions and random.random() <= remove_layer_prob:
-                remove_idx = random.randint(0, len(module.layers)-1)
-                del module.layers[remove_idx]
+            if random.random() <= remove_layer_prob:
+                module.remove_layer(individual_copy.id, m_idx)
 
-                # fix connections
-                if remove_idx == max(module.connections.keys()):
-                    module.connections.pop(remove_idx)
-                else:
-                    for _key_ in sorted(module.connections.keys()):
-                        if _key_ > remove_idx:
-                            if _key_ > remove_idx+1 and remove_idx in module.connections[_key_]:
-                                module.connections[_key_].remove(remove_idx)
-
-                            for value_idx, value in enumerate(module.connections[_key_]):
-                                if value >= remove_idx:
-                                    module.connections[_key_][value_idx] -= 1
-                            module.connections[_key_ -
-                                               1] = list(set(module.connections.pop(_key_)))
-                    if remove_idx == 0:
-                        module.connections[0] = [-1]
-                logger.info(f"Individual {individual_copy.id} is going to have a layer removed from "
-                            f"Module {m_idx}: {module.module_name}; position {remove_idx}")
-
-        for layer_idx, layer in enumerate(module.layers):
+        for layer_idx in range(len(module.layers)):
             # dsge mutation
             if random.random() <= dsge_layer_prob:
-                mutation_dsge(layer, grammar)
-                logger.info(f"Individual {individual_copy.id} is going to have a DSGE mutation on "
-                            f"Module {m_idx}: {module.module_name}; position {layer_idx}")
-
+                module.layer_dsge(individual_copy.id,
+                                  m_idx, grammar, layer_idx)
             # add connection
             if layer_idx != 0 and random.random() <= add_connection_prob:
-                connection_possibilities = list(range(max(0, layer_idx-module.module_configuration.levels_back),
-                                                      layer_idx-1))
-                connection_possibilities = list(
-                    set(connection_possibilities) - set(module.connections[layer_idx]))
-                if len(connection_possibilities) > 0:
-                    new_input: int = random.choice(connection_possibilities)
-                    module.connections[layer_idx].append(new_input)
-                logger.info(f"Individual {individual_copy.id} is going to have a new connection "
-                            f"Module {m_idx}: {module.module_name}; layer {layer_idx}")
+                module.layer_add_connection(
+                    individual_copy.id, m_idx, layer_idx)
             # remove connection
             if layer_idx != 0 and random.random() <= remove_connection_prob:
-                connection_possibilities = list(
-                    set(module.connections[layer_idx]) - set([layer_idx-1]))
-                if len(connection_possibilities) > 0:
-                    r_connection = random.choice(connection_possibilities)
-                    module.connections[layer_idx].remove(r_connection)
-                    logger.info(f"Individual {individual_copy.id} is going to have a connection removed from "
-                                f"Module {m_idx}: {module.module_name}; layer {layer_idx}")
+                module.layer_remove_connection(
+                    individual_copy.id, m_idx, layer_idx)
+
     # macro level mutation
     for macro in individual_copy.macro:
         if random.random() <= macro_layer_prob:
             mutation_dsge(macro, grammar)
             logger.info(
-                f"Individual {individual_copy.id} is going to have a macro mutation")
+                "Individual %d is going to have a macro mutation", individual_copy.id)
 
     return individual_copy
 
