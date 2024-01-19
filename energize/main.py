@@ -28,13 +28,9 @@ if TYPE_CHECKING:
 
 # pylint: disable=redefined-outer-name
 def create_initial_checkpoint(dataset_name: str, config: Config, run: int, is_gpu_run: bool) -> Checkpoint:
-
-    fitness_metric_name: FitnessMetricName = FitnessMetricName(
-        config['evolutionary']['fitness_metric'])
-
     evaluator: BaseEvaluator = create_evaluator(dataset_name,
-                                                fitness_metric_name,
                                                 run,
+                                                config['evolutionary'],
                                                 config['network']['learning'],
                                                 config['energize'],
                                                 is_gpu_run)

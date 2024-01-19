@@ -76,14 +76,47 @@ properties:
         - macro_layer
         - train_longer
       fitness_metric:
-        enum: ["accuracy", "loss"]
+        enum: ["accuracy", "loss", "power", "energy"]
+      fitness_function:
+        type: array
+        items:
+          type: object
+          properties:
+            metric:
+              enum: ["accuracy", "loss", "power", "energy"]
+            objective:
+              enum: ["maximize", "minimize"]
+            weight:
+              type: number
+            conditions:
+              type: array
+              items:
+                type: object
+                properties:
+                  metric:
+                    enum: ["accuracy", "loss", "power", "energy"]
+                  type:
+                    enum: ["less_than", "greater_than"]
+                  value:
+                    type: number
+                required:
+                - type
+                - value
+          required:
+          - metric
+          - objective
+          - weight
     additionalProperties: False
     required:
     - generations
     - lambda
     - max_epochs
     - mutation
-    - fitness_metric
+    oneOf:
+      - required:
+        - fitness_metric
+      - required:
+        - fitness_function
   network:
     type: object
     properties:
