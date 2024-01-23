@@ -90,7 +90,7 @@ def parse_phenotype(phenotype: str) -> Tuple[ParsedNetwork, Optimiser]:
     phenotype_as_list: List[List[str]] = \
         list(map(lambda x: x.split(":"), phenotype.split(" ")))
 
-    optimiser: Optimiser
+    optimiser: Optimiser = None
     layers: List[Layer] = []
     layers_connections: Dict[LayerId, List[InputLayerId]] = {}
     layer_id: int = 0

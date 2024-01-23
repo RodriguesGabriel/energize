@@ -76,6 +76,8 @@ def create_evaluator(dataset_name: str,
 
     if energize_params['measure_power']['train'] or energize_params['measure_power']['test']:
         power_config = PowerConfig(energize_params)
+        from energize.networks.module import Module
+        Module.power_config = power_config
     else:
         power_config = None
 
@@ -123,13 +125,6 @@ class BaseEvaluator(ABC):
         self.user_chosen_device: Device = user_chosen_device
         self.dataset = dataset
         self.power_config: PowerConfig | None = power_config
-
-    @staticmethod
-    def _adapt_model_to_device(torch_model: nn.Module, device: Device) -> None:
-        if device == Device.GPU and torch.cuda.device_count() > 1:
-            torch_model = nn.DataParallel(torch_model)
-        torch_model.to(device.value, non_blocking=True)
-        torch.compile(torch_model, mode="reduce-overhead")
 
     @staticmethod
     def _calculate_invalid_network_fitness(metric_name: FitnessMetricName | None) -> Fitness:
@@ -183,14 +178,22 @@ class BaseEvaluator(ABC):
 
         return train_loader, validation_loader, test_loader
 
-    def _decide_device(self) -> Device:
-        if self.user_chosen_device == Device.CPU:
+    @staticmethod
+    def decide_device(user_chosen_device: Device) -> Device:
+        if user_chosen_device == Device.CPU:
             return Device.CPU
         if not torch.cuda.is_available() and not torch.backends.mps.is_available():
-            logger.warning(f"User chose training in {self.user_chosen_device.name} but CUDA/MPS is not available. "
+            logger.warning(f"User chose training in {user_chosen_device.name} but CUDA/MPS is not available. "
                            f"Defaulting training to {Device.CPU.name}")
             return Device.CPU
         return Device.GPU
+
+    @staticmethod
+    def adapt_model_to_device(torch_model: nn.Module, device: Device) -> None:
+        if device == Device.GPU and torch.cuda.device_count() > 1:
+            torch_model = nn.DataParallel(torch_model)
+        torch_model.to(device.value, non_blocking=True)
+        torch.compile(torch_model, mode="reduce-overhead")
 
     @abstractmethod
     def evaluate(self,
@@ -231,7 +234,7 @@ class BaseEvaluator(ABC):
             os.path.join(model_dir, weights_filename)))
         torch_model.eval()
 
-        device: Device = self._decide_device()
+        device: Device = self.decide_device(self.user_chosen_device)
         if device == Device.GPU and torch.cuda.device_count() > 1:
             torch_model = nn.DataParallel(torch_model)
         torch_model.to(device.value, non_blocking=True)
@@ -286,7 +289,7 @@ class LegacyEvaluator(BaseEvaluator):
         from energize.networks.torch.model_builder import ModelBuilder
 
         optimiser: Optimiser
-        device: Device = self._decide_device()
+        device: Device = self.decide_device(self.user_chosen_device)
         torch_model: nn.Module
         fitness_value: Fitness
         start = time()
@@ -310,8 +313,8 @@ class LegacyEvaluator(BaseEvaluator):
                 if reuse_parent_weights:
                     num_epochs = 0
 
-            device = self._decide_device()
-            self._adapt_model_to_device(torch_model, device)
+            device = self.decide_device(self.user_chosen_device)
+            self.adapt_model_to_device(torch_model, device)
 
             trainable_params_count: int = sum(
                 p.numel() for p in torch_model.parameters() if p.requires_grad)

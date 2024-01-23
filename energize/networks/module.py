@@ -1,8 +1,21 @@
 import random
 import logging
-from typing import Dict, List, TYPE_CHECKING
+from copy import deepcopy
+from typing import Dict, List, Tuple, TYPE_CHECKING
+from sys import float_info
+import time
 
+import numpy as np
+import torch
+from torch import nn, Size
+
+from energize.misc.enums import Device
+from energize.misc.utils import InvalidNetwork
+from energize.misc.power import PowerConfig
 from energize.networks.module_config import ModuleConfig
+from energize.networks.torch.evaluators import BaseEvaluator, LegacyEvaluator, parse_phenotype
+from energize.misc.constants import DATASETS_INFO
+from energize.networks.torch.model_builder import ModelBuilder
 
 if TYPE_CHECKING:
     from energize.evolution.grammar import Genotype, Grammar
@@ -11,11 +24,16 @@ logger = logging.getLogger(__name__)
 
 
 class Module:
+    history: List['Module'] = []
+    power_config: PowerConfig = None
+
+
     def __init__(self, module_name: str, module_configuration: ModuleConfig) -> None:
         self.module_name: str = module_name
         self.module_configuration: ModuleConfig = module_configuration
         self.layers: List[Genotype] = []
         self.connections: Dict[int, List[int]] = {}
+        self.power: float | None = None
 
     def initialise(self, grammar: 'Grammar', reuse: float) -> None:
         num_expansions = random.choice(
@@ -28,7 +46,7 @@ class Module:
                 self.layers.append(self.layers[r_idx])
             else:
                 self.layers.append(grammar.initialise(self.module_name))
-
+        # print(self.layers)
         # Initialise connections: feed-forward and allowing skip-connections
         self.connections = {}
 
@@ -49,7 +67,64 @@ class Module:
                     self.connections[layer_idx] += random.sample(
                         connection_possibilities, sample_size)
 
-    def add_layer(self, individual_idx: int,  module_idx: int, grammar: 'Grammar', reuse_layer_prob: float):
+        self.measure_power(grammar)
+
+    def decode(self, grammar: 'Grammar', layer_counter: int) -> Tuple[int, str]:
+        phenotype: str = ''
+        offset: int = layer_counter
+        for layer_idx, layer_genotype in enumerate(self.layers):
+            layer_counter += 1
+            phenotype_layer: str = f" {grammar.decode(self.module_name, layer_genotype)}"
+            current_connections = deepcopy(self.connections[layer_idx])
+            # ADRIANO HACK
+            if "relu_agg" in phenotype_layer and -1 not in self.connections[layer_idx]:
+                current_connections = [-1] + current_connections
+            # END
+            phenotype += (
+                f"{phenotype_layer}"
+                f" input:{','.join(map(str, np.array(current_connections) + offset))}"
+            )
+        return layer_counter, phenotype
+
+    def measure_power(self, grammar: 'Grammar') -> None:
+        if self.power_config is None or not self.power_config.measure_modules_power:
+            return
+
+        phenotype = self.decode(grammar, 0)[1][1:]
+        parsed_network, _ = parse_phenotype(phenotype)
+        device = BaseEvaluator.decide_device(Device.GPU)
+
+        try:
+            input_size: Tuple[int, int, int] = (1, 32, 32)
+            model_builder: ModelBuilder = ModelBuilder(
+                parsed_network, device, Size(list(input_size)))
+            torch_model = model_builder.assemble_network(LegacyEvaluator)
+
+            BaseEvaluator.adapt_model_to_device(torch_model, device)
+
+            trainable_params_count: int = sum(
+                p.numel() for p in torch_model.parameters() if p.requires_grad)
+            if trainable_params_count == 0:
+                raise InvalidNetwork(
+                    "Network does not contain any trainable parameters.")
+
+            torch_model.eval()
+            with torch.no_grad():
+                random_input = torch.rand(10**3, *input_size).to(device.value, non_blocking=True)
+                self.power_config.meter.start(tag="module")
+                for _ in range(10**3):
+                    torch_model(random_input)
+                self.power_config.meter.stop()
+
+            trace = self.power_config.meter.get_trace()
+            self.power = sum(trace[0].energy.values()) / 1000 / trace[0].duration
+            self.history.append(deepcopy(self))
+        except InvalidNetwork as e:
+            logger.warning("Invalid network: %s", e)
+        except RuntimeError as e:
+            logger.warning("Runtime error: %s", e)
+
+    def add_layer(self, grammar: 'Grammar', individual_idx: int,  module_idx: int, reuse_layer_prob: float):
         if len(self.layers) >= self.module_configuration.max_expansions:
             return
 
@@ -89,8 +164,9 @@ class Module:
 
         logger.info("Individual %d is going to have an extra layer at Module %d: %s; position %d",
                     individual_idx, module_idx, self.module_name, insert_pos)
+        self.measure_power(grammar)
 
-    def remove_layer(self, individual_idx: int, module_idx: int):
+    def remove_layer(self, grammar: 'Grammar', individual_idx: int, module_idx: int):
         if len(self.layers) <= self.module_configuration.min_expansions:
             return
         remove_idx = random.randint(0, len(self.layers)-1)
@@ -114,14 +190,16 @@ class Module:
                 self.connections[0] = [-1]
         logger.info("Individual %d is going to have a layer removed from Module %d: %s; position %d",
                     individual_idx, module_idx, self.module_name, remove_idx)
+        self.measure_power(grammar)
 
-    def layer_dsge(self, individual_idx: int, module_idx: int, grammar: 'Grammar', layer_idx: int):
+    def layer_dsge(self, grammar: 'Grammar', individual_idx: int, module_idx: int, layer_idx: int):
         from energize.evolution.operators import mutation_dsge
         mutation_dsge(self.layers[layer_idx], grammar)
         logger.info("Individual %d is going to have a DSGE mutation on Module %d: %s; position %d",
                     individual_idx, module_idx, self.module_name, layer_idx)
+        self.measure_power(grammar)
 
-    def layer_add_connection(self, individual_idx: int, module_idx: int, layer_idx: int):
+    def layer_add_connection(self, grammar: 'Grammar', individual_idx: int, module_idx: int, layer_idx: int):
         connection_possibilities = list(range(max(0, layer_idx-self.module_configuration.levels_back),
                                               layer_idx-1))
         connection_possibilities = list(
@@ -131,8 +209,9 @@ class Module:
             self.connections[layer_idx].append(new_input)
         logger.info("Individual %d is going to have a new connection Module %d: %s; layer %d",
                     individual_idx, module_idx, self.module_name, layer_idx)
+        self.measure_power(grammar)
 
-    def layer_remove_connection(self, individual_idx: int, module_idx: int, layer_idx: int):
+    def layer_remove_connection(self, grammar: 'Grammar', individual_idx: int, module_idx: int, layer_idx: int):
         connection_possibilities = list(
             set(self.connections[layer_idx]) - set([layer_idx-1]))
         if len(connection_possibilities) > 0:
@@ -140,6 +219,7 @@ class Module:
             self.connections[layer_idx].remove(r_connection)
         logger.info("Individual %d is going to have a connection removed from Module %d: %s; layer %d",
                     individual_idx, module_idx, self.module_name, layer_idx)
+        self.measure_power(grammar)
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Module):

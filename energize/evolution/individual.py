@@ -162,33 +162,17 @@ class Individual:
         """
 
         phenotype: str = ''
-        offset: int = 0
         layer_counter: int = 0
-        final_offset: int
         for module in self.modules:
-            offset = layer_counter
-            for layer_idx, layer_genotype in enumerate(module.layers):
-                layer_counter += 1
-                phenotype_layer: str = f" {grammar.decode(module.module_name, layer_genotype)}"
-                current_connections = deepcopy(module.connections[layer_idx])
-                # ADRIANO HACK
-                if "relu_agg" in phenotype_layer and -1 not in module.connections[layer_idx]:
-                    current_connections = [-1] + current_connections
-                # END
-                final_offset = offset
-                phenotype += (
-                    f"{phenotype_layer}"
-                    f" input:{','.join(map(str, np.array(current_connections) + final_offset))}"
-                )
+            layer_counter, module_phenotype = module.decode(grammar, layer_counter)
+            phenotype += module_phenotype
+
         final_input_layer_id: int
         assert self.output is not None
         final_phenotype_layer: str = grammar.decode(
             self.output_rule, self.output)
 
-        if final_offset == 0:
-            final_input_layer_id = layer_counter - 1 - offset
-        else:
-            final_input_layer_id = layer_counter - 1
+        final_input_layer_id = layer_counter - 1
 
         phenotype += " " + final_phenotype_layer + " input:" + \
             str(final_input_layer_id)

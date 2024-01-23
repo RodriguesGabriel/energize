@@ -129,26 +129,26 @@ def mutation(individual: Individual,
         # add-layer (duplicate or new)
         for _ in range(random.randint(1, 2)):
             if random.random() <= add_layer_prob:
-                module.add_layer(individual_copy.id, m_idx,
-                                 grammar, reuse_layer_prob)
+                module.add_layer(grammar, individual_copy.id, m_idx,
+                                 reuse_layer_prob)
         # remove-layer
         for _ in range(random.randint(1, 2)):
             if random.random() <= remove_layer_prob:
-                module.remove_layer(individual_copy.id, m_idx)
+                module.remove_layer(grammar, individual_copy.id, m_idx)
 
         for layer_idx in range(len(module.layers)):
             # dsge mutation
             if random.random() <= dsge_layer_prob:
-                module.layer_dsge(individual_copy.id,
-                                  m_idx, grammar, layer_idx)
+                module.layer_dsge(grammar, individual_copy.id,
+                                  m_idx, layer_idx)
             # add connection
             if layer_idx != 0 and random.random() <= add_connection_prob:
-                module.layer_add_connection(
-                    individual_copy.id, m_idx, layer_idx)
+                module.layer_add_connection(grammar,
+                                            individual_copy.id, m_idx, layer_idx)
             # remove connection
             if layer_idx != 0 and random.random() <= remove_connection_prob:
-                module.layer_remove_connection(
-                    individual_copy.id, m_idx, layer_idx)
+                module.layer_remove_connection(grammar,
+                                               individual_copy.id, m_idx, layer_idx)
 
     # macro level mutation
     for macro in individual_copy.macro:
