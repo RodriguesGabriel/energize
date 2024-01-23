@@ -48,7 +48,8 @@ def create_initial_checkpoint(dataset_name: str, config: Config, run: int, is_gp
         total_epochs=0,
         best_fitness=None,
         evaluator=evaluator,
-        best_gen_ind_test_accuracy=0.0
+        best_gen_ind_test_accuracy=0.0,
+        modules_history=[]
     )
 
 

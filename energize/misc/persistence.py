@@ -12,6 +12,7 @@ from energize.evolution import Individual
 from energize.misc.constants import MODEL_FILENAME
 from energize.misc.evaluation_metrics import EvaluationMetrics
 from energize.misc.constants import OVERALL_BEST_FOLDER, STATS_FOLDER_NAME
+from energize.networks.module import Module
 from energize.misc.power import PowerConfig
 
 if TYPE_CHECKING:
@@ -47,6 +48,7 @@ class RestoreCheckpoint:
         if os.path.exists(checkpoint_path):
             with open(checkpoint_path, "rb") as handle_checkpoint:
                 checkpoint: Checkpoint = dill.load(handle_checkpoint)
+            Module.history = checkpoint.modules_history
             if config["energize"] is not None:
                 checkpoint.evaluator.power_config = PowerConfig(
                     config['energize'])

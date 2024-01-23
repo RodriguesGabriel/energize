@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from energize.evolution import Individual
     from energize.misc.fitness_metrics import Fitness
     from energize.networks.torch.evaluators import BaseEvaluator
+    from energize.networks.module import Module
 
 
 @dataclass
@@ -22,6 +23,7 @@ class Checkpoint:
     best_fitness: Optional[Fitness]
     evaluator: BaseEvaluator
     best_gen_ind_test_accuracy: float
+    modules_history: List[Module]
     population: Optional[List[Individual]] = field(default=None)
     parent: Optional[Individual] = field(default=None)
 

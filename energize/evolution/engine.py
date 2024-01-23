@@ -10,6 +10,7 @@ from energize.config import Config
 from energize.evolution import Grammar, Individual, operators
 from energize.misc import Checkpoint, persistence
 from energize.misc.fitness_metrics import Fitness
+from energize.networks.module import Module
 
 logger = logging.getLogger(__name__)
 
@@ -136,5 +137,6 @@ def evolve(run: int,
         evaluator=checkpoint.evaluator,
         population=population,
         parent=parent,
-        best_gen_ind_test_accuracy=best_test_acc
+        best_gen_ind_test_accuracy=best_test_acc,
+        modules_history=Module.history
     )
