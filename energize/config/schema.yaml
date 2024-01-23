@@ -37,6 +37,27 @@ type: object
 properties:
   checkpoints_path:
     type: string
+  energize:
+    type: object
+    properties:
+      measure_power:
+        type: object
+        properties:
+          train:
+            type: boolean
+          test:
+            type: boolean
+          num_measurements_test:
+            type: integer
+            minimum: 1
+          modules:
+            type: boolean
+        additionalProperties: False
+        required:
+        - train
+        - test
+        - num_measurements_test
+        - modules
   evolutionary:
     type: object
     properties:
@@ -59,6 +80,10 @@ properties:
             $ref: "#/$defs/probability"
           remove_layer:
             $ref: "#/$defs/probability"
+          reuse_module:
+            $ref: "#/$defs/probability"
+          remove_module:
+            $ref: "#/$defs/probability"
           dsge_layer:
             $ref: "#/$defs/probability"
           macro_layer:
@@ -72,6 +97,8 @@ properties:
         - add_layer
         - reuse_layer
         - remove_layer
+        - reuse_module
+        - remove_module
         - dsge_layer
         - macro_layer
         - train_longer
@@ -188,23 +215,6 @@ properties:
     required:
     - architecture
     - learning
-  energize:
-    type: object
-    properties:
-      measure_power:
-        type: object
-        properties:
-          train:
-            type: boolean
-          test:
-            type: boolean
-          num_measurements_test:
-            type: integer
-            minimum: 1
-        additionalProperties: False
-        required:
-        - train
-        - test
 additionalProperties: False
 required:
 - checkpoints_path

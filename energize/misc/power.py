@@ -12,12 +12,14 @@ class PowerConfig:
     domains: List[NvidiaGPUDomain]
     devices: List[Device]
     meter: EnergyMeter
+    measure_modules_power: bool
 
     def __init__(self, config: dict):
         self.config = config
         self.domains = [NvidiaGPUDomain(0)]
         self.devices = DeviceFactory.create_devices(self.domains)
         self.meter = EnergyMeter(self.devices)
+        self.measure_modules_power = config["measure_power"]["modules"]
 
 
 def measure_power(power_config: PowerConfig, func, func_args):

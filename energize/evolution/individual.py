@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-from copy import deepcopy
 import logging
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+import random
+from copy import deepcopy
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import numpy as np
 
-from energize.networks import Module
 from energize.misc.evaluation_metrics import EvaluationMetrics
 from energize.misc.fitness_metrics import Fitness
-
+from energize.networks import Module
 
 if TYPE_CHECKING:
     from energize.evolution.grammar import Genotype, Grammar
-    from energize.networks.torch.evaluators import BaseEvaluator
     from energize.networks.module import ModuleConfig
+    from energize.networks.torch.evaluators import BaseEvaluator
 
 __all__ = ['Individual']
 
@@ -162,33 +162,18 @@ class Individual:
         """
 
         phenotype: str = ''
-        offset: int = 0
         layer_counter: int = 0
-        final_offset: int
         for module in self.modules:
-            offset = layer_counter
-            for layer_idx, layer_genotype in enumerate(module.layers):
-                layer_counter += 1
-                phenotype_layer: str = f" {grammar.decode(module.module_name, layer_genotype)}"
-                current_connections = deepcopy(module.connections[layer_idx])
-                # ADRIANO HACK
-                if "relu_agg" in phenotype_layer and -1 not in module.connections[layer_idx]:
-                    current_connections = [-1] + current_connections
-                # END
-                final_offset = offset
-                phenotype += (
-                    f"{phenotype_layer}"
-                    f" input:{','.join(map(str, np.array(current_connections) + final_offset))}"
-                )
+            layer_counter, module_phenotype = module.decode(
+                grammar, layer_counter)
+            phenotype += module_phenotype
+
         final_input_layer_id: int
         assert self.output is not None
         final_phenotype_layer: str = grammar.decode(
             self.output_rule, self.output)
 
-        if final_offset == 0:
-            final_input_layer_id = layer_counter - 1 - offset
-        else:
-            final_input_layer_id = layer_counter - 1
+        final_input_layer_id = layer_counter - 1
 
         phenotype += " " + final_phenotype_layer + " input:" + \
             str(final_input_layer_id)
@@ -198,6 +183,25 @@ class Individual:
 
         self.phenotype = phenotype.rstrip().lstrip()
         return self.phenotype
+
+    def reuse_module(self):
+        powers = np.array([module.power for module in Module.history])
+        probs = 1 / powers
+        probs /= probs.sum()
+        chosen_module = np.random.choice(Module.history, p=probs)
+        insert_idx: int = random.randint(0, len(self.modules))
+        logger.info("Individual %d is going to have a module [%s] reused and inserted into position %d",
+                    self.id, chosen_module.module_name, insert_idx)
+        self.modules.insert(insert_idx, deepcopy(chosen_module))
+
+    def remove_module(self) -> None:
+        if len(self.modules) == 1:
+            return
+
+        remove_idx: int = random.randint(0, len(self.modules) - 1)
+        logger.info("Individual %d is going to have a module [%s] removed from position %d",
+                    self.id,  self.modules[remove_idx].module_name, remove_idx)
+        self.modules.pop(remove_idx)
 
     def evaluate(self,
                  grammar: Grammar,
