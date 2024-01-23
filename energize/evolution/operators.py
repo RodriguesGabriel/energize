@@ -1,18 +1,19 @@
-from copy import deepcopy
 import logging
 import random
-from typing import Dict, List, TYPE_CHECKING, Tuple
+from copy import deepcopy
+from typing import TYPE_CHECKING, Dict, List, Tuple
 
 import numpy as np
 
 from energize.evolution import Individual
-from energize.evolution.grammar import Derivation, Grammar, NonTerminal, Terminal
+from energize.evolution.grammar import (Derivation, Grammar, NonTerminal,
+                                        Terminal)
 from energize.misc import persistence
 
 if TYPE_CHECKING:
-    from energize.networks.torch import BaseEvaluator
-    from energize.misc.fitness_metrics import Fitness
     from energize.evolution.grammar import Genotype, Symbol
+    from energize.misc.fitness_metrics import Fitness
+    from energize.networks.torch import BaseEvaluator
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +105,8 @@ def mutation(individual: Individual,
     add_layer_prob: float = mutation_config['add_layer']
     reuse_layer_prob: float = mutation_config['reuse_layer']
     remove_layer_prob: float = mutation_config['remove_layer']
+    reuse_module: float = mutation_config['reuse_module']
+    remove_module: float = mutation_config['remove_module']
     add_connection_prob: float = mutation_config['add_connection']
     remove_connection_prob: float = mutation_config['remove_connection']
     dsge_layer_prob: float = mutation_config['dsge_layer']
@@ -124,6 +127,14 @@ def mutation(individual: Individual,
     individual_copy.num_epochs = 0
     individual_copy.total_allocated_train_time = default_train_time
     individual_copy.metrics = None
+
+    # reuse module
+    if random.random() <= reuse_module:
+        individual_copy.reuse_module()
+
+    # remove module
+    if random.random() <= remove_module:
+        individual_copy.remove_module()
 
     for m_idx, module in enumerate(individual_copy.modules):
         # add-layer (duplicate or new)

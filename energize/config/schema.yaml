@@ -80,6 +80,10 @@ properties:
             $ref: "#/$defs/probability"
           remove_layer:
             $ref: "#/$defs/probability"
+          reuse_module:
+            $ref: "#/$defs/probability"
+          remove_module:
+            $ref: "#/$defs/probability"
           dsge_layer:
             $ref: "#/$defs/probability"
           macro_layer:
@@ -93,6 +97,8 @@ properties:
         - add_layer
         - reuse_layer
         - remove_layer
+        - reuse_module
+        - remove_module
         - dsge_layer
         - macro_layer
         - train_longer
