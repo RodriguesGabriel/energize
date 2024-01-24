@@ -44,7 +44,7 @@ class Test(unittest.TestCase):
             seed=run
         )
         test_checkpoint: Checkpoint = Checkpoint(
-            run, None, None, None, 0, 0, None, None, 0, [], fake_parent)
+            run, None, None, None, 0, 0, None, None, 0, [], [], fake_parent)
         self.save_checkpoint._save_checkpoint(
             test_checkpoint, save_path=folder_name, max_generations=10)
 
@@ -65,7 +65,7 @@ class Test(unittest.TestCase):
         )
         run: int = 0
         expected_checkpoint: Checkpoint = Checkpoint(
-            run, None, None, None, 0, 0, None, None, 0, [], fake_parent)
+            run, None, None, None, 0, 0, None, None, 0, [], [], fake_parent)
         self.assertEqual(expected_checkpoint, self.restore_checkpoint.restore_checkpoint(
             {"checkpoints_path": "tests/resources", "energize": None}, run))
 

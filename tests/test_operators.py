@@ -79,8 +79,7 @@ class Test(unittest.TestCase):
         random.seed(0)
         self.mutation_config['add_layer'] = 1.0
         ind, grammar = self.create_individual()
-        new_ind = operators.mutation(
-            deepcopy(ind), grammar, self.mutation_config, 60)
+        new_ind = operators.mutation(ind, grammar, self.mutation_config, 60)
         self.mutation_config['add_layer'] = 0.0
         obtained_layers = new_ind.modules[0].layers
         original_layers = ind.modules[0].layers
@@ -88,7 +87,7 @@ class Test(unittest.TestCase):
         obtained_connections = new_ind.modules[0].connections
         self.assert_layers_mutation(obtained_layers,
                                     original_layers,
-                                    [1],
+                                    [0],
                                     [mutation_added_layer_genotype],
                                     [])
         self.assertEqual(obtained_connections, {**connections, **{2: [1]}})
@@ -112,7 +111,7 @@ class Test(unittest.TestCase):
         obtained_connections = new_ind.modules[0].connections
         self.assert_layers_mutation(obtained_layers,
                                     original_layers,
-                                    [1],
+                                    [2],
                                     [original_layers[0]],
                                     [])
         self.assertEqual(obtained_connections, {**connections, **{2: [1]}})
@@ -128,8 +127,7 @@ class Test(unittest.TestCase):
         self.mutation_config['remove_layer'] = 1.0
         ind, grammar = self.create_individual()
         connections = ind.modules[0].connections
-        new_ind = operators.mutation(
-            deepcopy(ind), grammar, self.mutation_config, 60)
+        new_ind = operators.mutation(ind, grammar, self.mutation_config, 60)
         self.mutation_config['remove_layer'] = 0.0
         obtained_layers = new_ind.modules[0].layers
         original_layers = ind.modules[0].layers
@@ -141,7 +139,7 @@ class Test(unittest.TestCase):
                                     original_layers,
                                     [],
                                     [],
-                                    [1])
+                                    [0])
         self.assertEqual(obtained_connections, connections)
         self.assertEqual(self.count_layers(ind.modules)-1,
                          self.count_layers(new_ind.modules),
