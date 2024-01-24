@@ -1,28 +1,53 @@
-checkpoints_path: ./experiments/
+checkpoints_path: ./experiments/supervised_10
+
+energize:
+  measure_power:
+    train: true
+    test: true
+    num_measurements_test: 10
+    modules: true
+
 evolutionary:
-  generations: 5
-  lambda: 3
-  max_epochs: 10000
+  generations: 2
+  lambda: 2
+  max_epochs: 1000000
   mutation:
     add_connection: 0.0
     remove_connection: 0.0
     add_layer: 0.8
     reuse_layer: 0.8
     remove_layer: 0.8
+    reuse_module: 0.8
+    remove_module: 0.8
     dsge_layer: 0.8
     macro_layer: 0.8
     train_longer: 0.2
   fitness_metric: accuracy
+  # fitness_function:
+  #   - metric: accuracy
+  #     objective: maximize
+  #     weight: 1
+  #   - metric: power
+  #     objective: minimize
+  #     weight: 10
+  #     conditions:
+  #       - metric: accuracy
+  #         type: greater_than
+  #         value: 0.7
+  #       - metric: accuracy
+  #         type: less_than
+  #         value: 0.9
+
 network:
   architecture:
-    reuse_layer: 0.8
+    reuse_layer: 0.7
     macro_structure:
       - learning
     output: softmax
     modules:
       - name: features
-        network_structure_init: [1]
-        network_structure: [1, 2]
+        network_structure_init: [3, 4, 5, 6]
+        network_structure: [3, 30]
         levels_back: 1
       - name: classification
         network_structure_init: [1]
@@ -34,6 +59,7 @@ network:
       evo_validation: 0.2
       evo_test: 0.1
     learning_type: supervised
+    default_train_time: 300
     augmentation:
       train:
         resize:
@@ -41,6 +67,3 @@ network:
       test:
         resize:
           size: 32
-      last_layer_train: null
-    default_train_time: 5
-    fitness_metric: accuracy

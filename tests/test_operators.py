@@ -20,6 +20,8 @@ class Test(unittest.TestCase):
             'add_layer': 0.0,
             'reuse_layer': 0.0,
             'remove_layer': 0.0,
+            'reuse_module': 0.0,
+            'remove_module': 0.0,
             'dsge_layer': 0.0,
             'macro_layer': 0.0,
             'train_longer': 0.0
