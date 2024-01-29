@@ -110,15 +110,18 @@ class Module:
 
             torch_model.eval()
             with torch.no_grad():
-                random_input = torch.rand(10**3, *input_size).to(device.value, non_blocking=True)
+                random_input = torch.rand(10**4, *input_size).to(device.value, non_blocking=True)
                 self.power_config.meter.start(tag="module")
-                for _ in range(10**3):
+                for _ in range(10**2):
                     torch_model(random_input)
                 self.power_config.meter.stop()
 
             trace = self.power_config.meter.get_trace()
             self.power = sum(trace[0].energy.values()) / 1000 / trace[0].duration
-            self.history.append(deepcopy(self))
+            if self.power == 0:
+                logger.warning("Module power is zero. Not saving it.")
+            else:
+                self.history.append(deepcopy(self))
         except InvalidNetwork as e:
             logger.warning("Invalid network: %s", e)
         except RuntimeError as e:
@@ -204,9 +207,10 @@ class Module:
                                               layer_idx-1))
         connection_possibilities = list(
             set(connection_possibilities) - set(self.connections[layer_idx]))
-        if len(connection_possibilities) > 0:
-            new_input: int = random.choice(connection_possibilities)
-            self.connections[layer_idx].append(new_input)
+        if len(connection_possibilities) == 0:
+            return
+        new_input: int = random.choice(connection_possibilities)
+        self.connections[layer_idx].append(new_input)
         logger.info("Individual %d is going to have a new connection Module %d: %s; layer %d",
                     individual_idx, module_idx, self.module_name, layer_idx)
         self.measure_power(grammar)
@@ -214,9 +218,10 @@ class Module:
     def layer_remove_connection(self, grammar: 'Grammar', individual_idx: int, module_idx: int, layer_idx: int):
         connection_possibilities = list(
             set(self.connections[layer_idx]) - set([layer_idx-1]))
-        if len(connection_possibilities) > 0:
-            r_connection = random.choice(connection_possibilities)
-            self.connections[layer_idx].remove(r_connection)
+        if len(connection_possibilities) == 0:
+            return
+        r_connection = random.choice(connection_possibilities)
+        self.connections[layer_idx].remove(r_connection)
         logger.info("Individual %d is going to have a connection removed from Module %d: %s; layer %d",
                     individual_idx, module_idx, self.module_name, layer_idx)
         self.measure_power(grammar)

@@ -10,7 +10,7 @@ from energize.misc.fitness_metrics import Fitness
 class EvaluationMetrics:
     is_valid_solution: bool
     fitness: Fitness
-    accuracy: Optional[float]
+    accuracy: Optional[tuple[float]]
     n_trainable_parameters: int
     n_layers: int
     training_time_spent: float
@@ -36,11 +36,23 @@ class EvaluationMetrics:
             power=None
         )
 
-    @classmethod
-    def list_fields(cls) -> List[str]:
-        return [field.name for field in fields(cls)]
+    def list_fields(self) -> List[str]:
+        class_fields = [field.name for field in fields(self)]
+        # if self.accuracy is not None and len(self.accuracy) > 1:
+        #     idx = class_fields.index("accuracy")
+        #     class_fields[idx] = "accuracy_0"
+        #     for i in range(1, len(self.accuracy)):
+        #         class_fields.insert(idx + i, f"accuracy_{i}")
+        return class_fields
 
     def __iter__(self) -> Iterator[Any]:
+        # data = list(astuple(self))
+        # if self.accuracy is not None and len(self.accuracy) > 1:
+        #     idx = data.index(self.accuracy)
+        #     data[idx] = self.accuracy[0]
+        #     for i in range(1, len(self.accuracy)):
+        #         data.insert(idx + i, self.accuracy[i])
+        # return iter(data)
         return iter(astuple(self))
 
     def __str__(self) -> str:
@@ -51,7 +63,7 @@ class EvaluationMetrics:
             f"training_time_spent: {self.training_time_spent},  " + \
             f"n_epochs: {self.n_epochs},  " + \
             f"total_epochs_trained: {self.total_epochs_trained},  " + \
-            f"accuracy: {round(self.accuracy, 5) if self.accuracy is not None else self.accuracy},  " + \
+            f"accuracy: {round(self.accuracy, 5) if self.accuracy is not None else None},  " + \
             f"fitness: {self.fitness},  " + \
             f"losses: {self.losses},  " + \
             f"power: {self.power},  " + \

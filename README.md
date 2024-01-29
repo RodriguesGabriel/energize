@@ -46,7 +46,7 @@ pip install -r requirements.txt
 - In order to run fast ENERGIZE, you need to run the evodenss module as a script:
 
 ```
-python3 -m energize.main \
+python3 -u -m energize.main \
     -d <dataset_name> \
     -c <config_path> \
     -g <grammar_path> \
@@ -56,7 +56,7 @@ python3 -m energize.main \
 Example:
 
 ```
-python3 -m energize.main \
+python3 -u -m energize.main \
     -d mnist \
     -c example/example_config.yaml \
     -g example/example.grammar \
@@ -68,7 +68,7 @@ In case several seeds are needed to be run, that can be done with Bash:
 
 ```
 for i in {7..9}; do \
-    python3 -m energize.main \
+    python3 -u -m energize.main \
     -d mnist \
     -c example/example_config.yaml \
     -g example/example.grammar \

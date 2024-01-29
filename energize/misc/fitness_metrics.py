@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from re import S
 import statistics as stats
 import math
 from sys import float_info
@@ -87,12 +88,15 @@ class FitnessMetric(ABC):
 
 
 class AccuracyMetric(FitnessMetric):
-    def __init__(self, batch_size: Optional[int] = None, loss_function: Any = None) -> None:
+    def __init__(self, num_outputs: int = 1, output_num: int = 0, batch_size: Optional[int] = None, loss_function: Any = None) -> None:
         super().__init__(batch_size, loss_function)
+        self.output_num: int = output_num
+        self.num_outputs: int = num_outputs
+        assert self.output_num < self.num_outputs
 
     def compute_metric(self, model: nn.Module, data_loader: DataLoader, device: Device) -> float:
         model.eval()
-        correct_guesses: float = 0
+        correct_guesses: int = 0
         size: int = 0
         # since we're not training, we don't need to calculate the gradients for our outputs
         with torch.no_grad():
@@ -100,10 +104,13 @@ class AccuracyMetric(FitnessMetric):
                 inputs, labels = data[0].to(device.value, non_blocking=True), \
                     data[1].to(device.value, non_blocking=True)
                 outputs = model(inputs)
+                if isinstance(outputs, tuple):
+                    outputs = outputs[self.output_num]
                 _, predicted = torch.max(outputs.data, 1)
-                correct_guesses += (predicted == labels).float().sum().item()
+                correct_guesses += (predicted ==
+                                    labels).float().sum().item()
                 size += len(labels)
-        return correct_guesses/size
+        return correct_guesses / size
 
     @classmethod
     def worse_than(cls, this: Fitness, other: Fitness) -> bool:
@@ -178,7 +185,7 @@ class PowerMetric(FitnessMetric):
     def compute_metric(self, model: nn.Module, data_loader: DataLoader, device: Device) -> dict:
         model.eval()
 
-        n = self.power_config.config["measure_power"]["num_measurements_test"]
+        n = self.power_config["measure_power"]["num_measurements_test"]
         measures = [0] * n
         durations = [0] * n
 
@@ -254,8 +261,10 @@ class CustomFitnessFunction(FitnessMetric):
             if param["metric"] not in pre_computed:
                 from energize.networks.torch.evaluators import create_fitness_metric
 
+                metric_name, metric_data = FitnessMetricName.new(
+                    param["metric"])
                 metric = create_fitness_metric(
-                    FitnessMetricName(param["metric"]), power_config=self.power_config)
+                    metric_name, metric_data, power_config=self.power_config)
                 pre_computed[param["metric"]] = metric.compute_metric(
                     model, data_loader, device)
 

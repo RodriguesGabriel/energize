@@ -112,7 +112,7 @@ class SaveCheckpoint:
             csvwriter = csv.writer(
                 csvfile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
             csvwriter.writerow(["id", "phenotype", "num_epochs", "total_training_time_allocated"] +
-                               EvaluationMetrics.list_fields())
+                               checkpoint.population[0].metrics.list_fields())
             for ind in checkpoint.population:
                 csvwriter.writerow([ind.id,
                                     ind.phenotype,

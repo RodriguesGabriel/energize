@@ -17,14 +17,14 @@ class EvolvedNetwork(nn.Module):
     def __init__(self,
                  evolved_layers: List[Tuple[str, nn.Module]],
                  layers_connections: Dict[LayerId, List[InputLayerId]],
-                 output_layer_id: LayerId) -> None:
+                 output_layer_idx: List[LayerId]) -> None:
 
         super().__init__()
         self.cache: Dict[Tuple[InputLayerId, LayerId], Tensor] = {}
         self.evolved_layers: List[Tuple[str, nn.Module]] = evolved_layers
         self.layers_connections: Dict[LayerId,
                                       List[InputLayerId]] = layers_connections
-        self.output_layer_id: LayerId = output_layer_id
+        self.output_layer_idx: List[LayerId] = output_layer_idx
         self.id_layername_map: Dict[LayerId, str] = {
             LayerId(i): l[0] for i, l in enumerate(evolved_layers)}
 
@@ -44,13 +44,11 @@ class EvolvedNetwork(nn.Module):
         final_input_tensor: Tensor
         input_tensor: Tensor
         output_tensor: Tensor
-        # layer_outputs: List[Tensor] = []
         layer_name: str = self.id_layername_map[layer_id]
         layer_inputs = []
         for i in input_ids:
             if i == -1:
                 input_tensor = x
-                # print("---------- (end) processing layer: ", layer_id, input_tensor.shape)
             else:
                 if (i, layer_id) in self.cache.keys():
                     input_tensor = self.cache[(i, layer_id)]
@@ -80,10 +78,14 @@ class EvolvedNetwork(nn.Module):
             return inputs
         return custom_forward
 
-    def forward(self, x: Tensor) -> Optional[Tensor]:
+    def forward(self, x: Tensor) -> Optional[Tensor] | Optional[tuple[Tensor]]:
         input_layer_ids: List[InputLayerId]
-        input_layer_ids = self.layers_connections[self.output_layer_id]
-        return self._process_forward_pass(x, self.output_layer_id, input_layer_ids)
+        result: List[Tensor] = []
+        for output_layer_id in self.output_layer_idx:
+            input_layer_ids = self.layers_connections[output_layer_id]
+            result.append(self._process_forward_pass(
+                x, output_layer_id, input_layer_ids))
+        return tuple(result) if len(result) > 1 else result[0]
 
 
 class LegacyNetwork(EvolvedNetwork):
@@ -91,8 +93,8 @@ class LegacyNetwork(EvolvedNetwork):
     def __init__(self,
                  evolved_layers: List[Tuple[str, nn.Module]],
                  layers_connections: Dict[LayerId, List[InputLayerId]],
-                 output_layer_id: LayerId) -> None:
-        super().__init__(evolved_layers, layers_connections, output_layer_id)
+                 output_layer_idx: List[LayerId]) -> None:
+        super().__init__(evolved_layers, layers_connections, output_layer_idx)
 
     def forward(self, x: Tensor) -> Optional[Tensor]:
         return super().forward(x)

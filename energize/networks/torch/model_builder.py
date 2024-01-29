@@ -130,9 +130,13 @@ class ModelBuilder():
                 layer_to_add = self._create_torch_layer(l, layer_name)
                 torch_layers.append((layer_name, layer_to_add))
             if evaluation_type is LegacyEvaluator:
+                # HACK GRC
+                output_layer_idx = [self.parsed_network.get_output_layer_id()]
+                if len(torch_layers + collected_extra_torch_layers) > 2 and output_layer_idx[0] == len(torch_layers + collected_extra_torch_layers) - 1:
+                    output_layer_idx.append(output_layer_idx[0]-1)
                 return LegacyNetwork(torch_layers + collected_extra_torch_layers,
                                      connections_to_use,
-                                     self.parsed_network.get_output_layer_id())
+                                     output_layer_idx)
             raise ValueError(f"Unexpected network type: {evaluation_type}")
         except InvalidNetwork as e:
             raise e
