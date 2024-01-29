@@ -190,8 +190,8 @@ class BaseEvaluator(ABC):
 
     @staticmethod
     def adapt_model_to_device(torch_model: nn.Module, device: Device) -> None:
-        if device == Device.GPU and torch.cuda.device_count() > 1:
-            torch_model = nn.DataParallel(torch_model)
+        # if device == Device.GPU and torch.cuda.device_count() > 1:
+        #     torch_model = nn.DataParallel(torch_model)
         torch_model.to(device.value, non_blocking=True)
         torch.compile(torch_model, mode="reduce-overhead")
 
@@ -235,8 +235,8 @@ class BaseEvaluator(ABC):
         torch_model.eval()
 
         device: Device = self.decide_device(self.user_chosen_device)
-        if device == Device.GPU and torch.cuda.device_count() > 1:
-            torch_model = nn.DataParallel(torch_model)
+        # if device == Device.GPU and torch.cuda.device_count() > 1:
+        #     torch_model = nn.DataParallel(torch_model)
         torch_model.to(device.value, non_blocking=True)
 
         test_set = self.dataset[DatasetType.TEST]

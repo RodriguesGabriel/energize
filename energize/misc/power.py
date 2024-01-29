@@ -1,11 +1,14 @@
 from typing import List
 import statistics as stats
 import numpy as np
+import logging
 
+import pynvml
 from pyJoules.device import DeviceFactory, Device
 from pyJoules.device.nvidia_device import NvidiaGPUDomain
 from pyJoules.energy_meter import EnergyMeter
 
+logger = logging.getLogger(__name__)
 
 class PowerConfig:
     config: dict
@@ -20,6 +23,24 @@ class PowerConfig:
         self.devices = DeviceFactory.create_devices(self.domains)
         self.meter = EnergyMeter(self.devices)
         self.measure_modules_power = config["measure_power"]["modules"]
+
+        if self.config["ensure_gpu_exclusivity"]:
+            self._ensure_gpu_exclusivity()
+
+    def _ensure_gpu_exclusivity(self):
+        pynvml.nvmlInit()
+        gpu = pynvml.nvmlDeviceGetHandleByIndex(0)
+        try:
+            if pynvml.nvmlDeviceGetComputeMode(gpu) != pynvml.NVML_COMPUTEMODE_EXCLUSIVE_PROCESS:
+                logger.warning("GPU is not in exclusive compute mode. Attempting to set it now.")
+                pynvml.nvmlDeviceSetComputeMode(gpu, pynvml.NVML_COMPUTEMODE_EXCLUSIVE_PROCESS)
+                logger.warning("GPU is now in exclusive compute mode.")
+            else:
+                logger.info("GPU is in exclusive compute mode.")
+        except pynvml.NVMLError as e:
+            raise RuntimeError("You need root permissions to set the compute mode to exclusive.") from e
+        finally:
+            pynvml.nvmlShutdown()
 
 
 def measure_power(power_config: PowerConfig, func, func_args):
