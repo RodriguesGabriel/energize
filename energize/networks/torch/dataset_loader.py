@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-from enum import unique, Enum
 import logging
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
+from enum import Enum, unique
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 from sklearn.model_selection import train_test_split
 from torch import Tensor
 from torch.utils.data import Subset
 from torchvision import datasets
 
-from energize.misc.proportions import ProportionsIndexes, ProportionsFloat
+from energize.misc.proportions import ProportionsFloat, ProportionsIndexes
 from energize.networks.torch.transformers import BaseTransformer
-
 
 if TYPE_CHECKING:
     from torch.utils.data import Dataset

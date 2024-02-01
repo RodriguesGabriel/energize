@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import ceil, floor
-from typing import Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple
 
 from energize.misc.enums import LayerType
-
 
 if TYPE_CHECKING:
     from energize.misc.phenotype_parser import Layer

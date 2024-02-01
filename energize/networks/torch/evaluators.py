@@ -2,20 +2,14 @@ from __future__ import annotations
 
 import logging
 import os
-import re
-import sys
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from optparse import Option
 from time import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
-import pynvml
 import torch
-import torchsummary
 from numpy import power
-from pyexpat import model
 from torch import Size, nn
 from torch.utils.data import DataLoader, Subset
 
@@ -462,7 +456,7 @@ class LegacyEvaluator(BaseEvaluator):
             else:
                 if self.power_config["model_partition"]:
                     accuracy = tuple(AccuracyMetric().compute_metric(pm, test_loader, device)
-                                    for pm in model_partitions)
+                                     for pm in model_partitions)
                     accuracy = (np.mean(accuracy),) + accuracy
                 else:
                     accuracy = AccuracyMetric().compute_metric(torch_model, test_loader, device)

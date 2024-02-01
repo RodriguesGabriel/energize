@@ -1,10 +1,10 @@
 from __future__ import annotations
-from abc import ABC, abstractmethod
-from re import S
-import statistics as stats
+
 import math
+import statistics as stats
+from abc import ABC, abstractmethod
 from sys import float_info
-from typing import Any, TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 import torch
@@ -256,7 +256,8 @@ class CustomFitnessFunction(FitnessMetric):
         for param in self.fitness_function:
             metric_value: float = 0
             if param["metric"] not in pre_computed:
-                from energize.networks.torch.evaluators import create_fitness_metric
+                from energize.networks.torch.evaluators import \
+                    create_fitness_metric
 
                 metric_name, metric_data = FitnessMetricName.new(
                     param["metric"])

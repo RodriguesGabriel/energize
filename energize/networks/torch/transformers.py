@@ -1,20 +1,21 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from copy import deepcopy
 import logging
 import random
-from typing import Any, Dict, List, Tuple, TYPE_CHECKING
+from abc import ABC, abstractmethod
+from copy import deepcopy
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
-from PIL import Image, ImageOps, ImageFilter
-from torchvision.transforms import Compose, CenterCrop, ColorJitter, Normalize, RandomApply, \
-    RandomCrop, RandomGrayscale, RandomHorizontalFlip, RandomResizedCrop, Resize, \
-    ToTensor
+from PIL import Image, ImageFilter, ImageOps
+from torchvision.transforms import (CenterCrop, ColorJitter, Compose,
+                                    Normalize, RandomApply, RandomCrop,
+                                    RandomGrayscale, RandomHorizontalFlip,
+                                    RandomResizedCrop, Resize, ToTensor)
 
 from energize.misc.enums import TransformOperation
 
 if TYPE_CHECKING:
-    from torch import nn, Tensor
+    from torch import Tensor, nn
 
 
 __all__ = ['LegacyTransformer']

@@ -19,7 +19,7 @@ from energize.misc.constants import DATASETS_INFO, STATS_FOLDER_NAME
 from energize.misc.enums import FitnessMetricName
 from energize.misc.persistence import (RestoreCheckpoint,
                                        build_overall_best_path)
-from energize.misc.utils import is_valid_file, is_valid_config_file
+from energize.misc.utils import is_valid_config_file, is_valid_file
 from energize.networks.torch.evaluators import create_evaluator
 
 if TYPE_CHECKING:
@@ -28,6 +28,8 @@ if TYPE_CHECKING:
 logger: logging.Logger
 
 # pylint: disable=redefined-outer-name
+
+
 def create_initial_checkpoint(dataset_name: str, config: Config, run: int, is_gpu_run: bool, statistics_format: str) -> Checkpoint:
     evaluator: BaseEvaluator = create_evaluator(dataset_name,
                                                 run,

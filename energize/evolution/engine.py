@@ -1,6 +1,6 @@
-from copy import deepcopy
 import logging
 import random
+from copy import deepcopy
 from typing import List
 
 import numpy as np

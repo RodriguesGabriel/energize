@@ -1,7 +1,6 @@
 import os
-from typing import Any, NewType
-
 from argparse import ArgumentParser
+from typing import Any, NewType
 
 InputLayerId = NewType('InputLayerId', int)
 LayerId = NewType('LayerId', int)

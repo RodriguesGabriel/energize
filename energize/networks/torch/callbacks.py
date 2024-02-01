@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 import json
 import logging
 import os
+from abc import ABC, abstractmethod
 from time import time
-from typing import Any, Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict
 
 import torch
 
-from energize.misc.constants import METADATA_FILENAME, MODEL_FILENAME, WEIGHTS_FILENAME
+from energize.misc.constants import (METADATA_FILENAME, MODEL_FILENAME,
+                                     WEIGHTS_FILENAME)
 from energize.misc.power import PowerConfig
 
 if TYPE_CHECKING:
@@ -128,6 +129,7 @@ class EarlyStoppingCallback(Callback):
         else:
             self.best_score = trainer.validation_loss[-1]
             self.counter = 0
+
 
 class PowerMeasureCallback(Callback):
     def __init__(self, power_config: PowerConfig) -> None:

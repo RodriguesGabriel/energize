@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from functools import reduce
-from itertools import takewhile, dropwhile
-from typing import cast, Any, Dict, List, Set, Tuple, Optional
+from itertools import dropwhile, takewhile
+from typing import Any, Dict, List, Optional, Set, Tuple, cast
 
 from energize.misc.enums import Entity, LayerType, OptimiserType
 from energize.misc.utils import InputLayerId, LayerId

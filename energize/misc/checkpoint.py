@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from torch import Tensor
 
 if TYPE_CHECKING:
     from energize.evolution import Individual
     from energize.misc.fitness_metrics import Fitness
-    from energize.networks.torch.evaluators import BaseEvaluator
     from energize.networks.module import Module
+    from energize.networks.torch.evaluators import BaseEvaluator
 
 
 @dataclass

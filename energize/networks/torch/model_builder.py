@@ -1,23 +1,23 @@
 from __future__ import annotations
 
-from collections import Counter
 import logging
-from math import ceil
-import sys
 import warnings
-from typing import Dict, Iterable, List, Optional, Tuple, TYPE_CHECKING
+from collections import Counter
+from math import ceil
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
 
 import torch
-from torch import Size, nn, optim, Tensor
+from torch import Size, Tensor, nn, optim
 
 from energize.misc.constants import SEPARATOR_CHAR
-from energize.misc.enums import ActivationType, Device, LayerType, OptimiserType
+from energize.misc.enums import (ActivationType, Device, LayerType,
+                                 OptimiserType)
 from energize.misc.phenotype_parser import Layer
-from energize.misc.utils import InvalidNetwork, InputLayerId, LayerId
+from energize.misc.utils import InputLayerId, InvalidNetwork, LayerId
 from energize.networks import Dimensions
-from energize.networks.torch import EvolvedNetwork, LegacyNetwork, LARS, LearningParams, \
-    BaseEvaluator, LegacyEvaluator
-
+from energize.networks.torch import (LARS, BaseEvaluator, EvolvedNetwork,
+                                     LearningParams, LegacyEvaluator,
+                                     LegacyNetwork)
 
 warnings.filterwarnings("ignore")
 

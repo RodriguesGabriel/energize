@@ -1,15 +1,15 @@
 import filecmp
-import os
+import json
 import logging
+import os
 import shutil
 from typing import Any, Dict, List, Optional
 
-from jsonschema import validate
 import yaml
-import json
+from jsonschema import validate
+
 from energize.misc.enums import TransformOperation
 from energize.networks import ModuleConfig
-
 
 logger = logging.getLogger(__name__)
 
@@ -61,12 +61,14 @@ class Config():
         schema_path: str = os.path.join("energize", "config", "schema.json")
         schema: Any = self._load(schema_path)
         validate(self.config, schema)
-        logger.info("Type of training: %s", self.config['network']['learning']['learning_type'])
+        logger.info("Type of training: %s",
+                    self.config['network']['learning']['learning_type'])
         if self.config['network']['learning']['learning_type'] == "supervised":
             if self.config['network']['learning']['augmentation']['train'] is not None:
                 self._validate_augmentation_params(
                     self.config['network']['learning']['augmentation']['train'])
-            logger.info("Augmentation used in training: %s", self.config['network']['learning']['augmentation']['train'])
+            logger.info("Augmentation used in training: %s",
+                        self.config['network']['learning']['augmentation']['train'])
         else:
             raise ValueError(
                 f"Learning type {self.config['network']['learning']['learning_type']} not supported")
@@ -75,7 +77,8 @@ class Config():
             self._validate_augmentation_params(
                 self.config['network']['learning']['augmentation']['test'])
 
-        logger.info("Augmentation used in test: %s", self.config['network']['learning']['augmentation']['test'])
+        logger.info("Augmentation used in test: %s",
+                    self.config['network']['learning']['augmentation']['test'])
 
         if 'model_partition' in self.config['network']['architecture']['macro_structure'] \
                 and 'energize' in self.config \

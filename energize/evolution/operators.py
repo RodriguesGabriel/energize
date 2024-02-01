@@ -1,7 +1,7 @@
 import logging
 import random
 from copy import deepcopy
-from typing import TYPE_CHECKING, Dict, List, Tuple, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import numpy as np
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import astuple, dataclass, fields, asdict
+from dataclasses import asdict, astuple, dataclass, fields
 from typing import Any, Dict, Iterator, List, Optional
 
 from energize.misc.fitness_metrics import Fitness

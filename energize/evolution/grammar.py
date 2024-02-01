@@ -1,14 +1,13 @@
-from copy import deepcopy
-from dataclasses import dataclass, field
 import filecmp
 import os
-from random import randint, uniform
 import shutil
 import sys
+from copy import deepcopy
+from dataclasses import dataclass, field
+from random import randint, uniform
 from typing import Callable, Dict, Generic, List, NewType, Optional, TypeVar
 
 from energize.misc.enums import AttributeType
-
 
 T = TypeVar('T')
 K = TypeVar('K')
