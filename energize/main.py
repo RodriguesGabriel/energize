@@ -25,9 +25,10 @@ from energize.networks.torch.evaluators import create_evaluator
 if TYPE_CHECKING:
     from energize.networks.torch.evaluators import BaseEvaluator
 
+logger: logging.Logger
 
 # pylint: disable=redefined-outer-name
-def create_initial_checkpoint(dataset_name: str, config: Config, run: int, is_gpu_run: bool) -> Checkpoint:
+def create_initial_checkpoint(dataset_name: str, config: Config, run: int, is_gpu_run: bool, statistics_format: str) -> Checkpoint:
     evaluator: BaseEvaluator = create_evaluator(dataset_name,
                                                 run,
                                                 config['evolutionary'],
@@ -49,7 +50,8 @@ def create_initial_checkpoint(dataset_name: str, config: Config, run: int, is_gp
         best_fitness=None,
         evaluator=evaluator,
         best_gen_ind_test_accuracy=0.0,
-        modules_history=[]
+        modules_history=[],
+        statistics_format=statistics_format
     )
 
 
@@ -76,13 +78,12 @@ def main(run: int,
 
     checkpoint: Checkpoint
     if possible_checkpoint is None:
-        logger.info(
-            "Starting fresh run")  # pylint: disable=used-before-assignment
+        logger.info("Starting fresh run")
         random.seed(run)
         np.random.seed(run)
         torch.manual_seed(run)
         checkpoint = create_initial_checkpoint(
-            dataset_name, config, run, is_gpu_run)
+            dataset_name, config, run, is_gpu_run, config["statistics_format"])
     else:
         logger.info("Loading previous checkpoint")
         checkpoint = possible_checkpoint

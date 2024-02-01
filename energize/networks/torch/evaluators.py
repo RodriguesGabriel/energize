@@ -1,19 +1,21 @@
 from __future__ import annotations
-from copy import deepcopy
 
 import logging
 import os
 import re
 import sys
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from optparse import Option
 from time import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
+import numpy as np
 import pynvml
 import torch
 import torchsummary
 from numpy import power
+from pyexpat import model
 from torch import Size, nn
 from torch.utils.data import DataLoader, Subset
 
@@ -32,6 +34,7 @@ from energize.networks.torch.callbacks import (Callback, EarlyStoppingCallback,
                                                TimedStoppingCallback)
 from energize.networks.torch.dataset_loader import (DatasetType,
                                                     load_partitioned_dataset)
+from energize.networks.torch.evolved_networks import EvolvedNetwork
 from energize.networks.torch.trainers import Trainer
 from energize.networks.torch.transformers import (BaseTransformer,
                                                   LegacyTransformer)
@@ -52,7 +55,7 @@ def create_fitness_metric(metric_name: FitnessMetricName,
                           power_config: PowerConfig = None) -> FitnessMetric:
     if metric_name is FitnessMetricName.ACCURACY \
             or FitnessMetricName.ACCURACY_N:
-        return AccuracyMetric(power_config["model_partition_n"], metric_data)
+        return AccuracyMetric()
     if metric_name is FitnessMetricName.LOSS:
         assert loss_function is not None
         return LossMetric(loss_function)
@@ -316,7 +319,6 @@ class LegacyEvaluator(BaseEvaluator):
 
         os.makedirs(model_saving_dir, exist_ok=True)
 
-        logger.info(phenotype)
         parsed_network, optimiser = parse_phenotype(phenotype)
         try:
             input_size: Tuple[int, int,
@@ -392,19 +394,7 @@ class LegacyEvaluator(BaseEvaluator):
                     "power": sum(power_trace.energy.values()) / 1000 / power_trace.duration,
                 }
 
-            if self.power_config["model_partition"]:
-                ...
-
-            fitness_metric: Optional[FitnessMetric] = None
-            if self.fitness_metric_name is not None:
-                fitness_metric = create_fitness_metric(self.fitness_metric_name,
-                                                       self.fitness_metric_data,
-                                                       loss_function=loss_function,
-                                                       power_config=self.power_config)
-                fitness_metric_value = fitness_metric.compute_metric(
-                    torch_model, test_loader, device)
-
-            model_partitions: Optional[List[nn.Module]] = None
+            model_partitions: Optional[List[EvolvedNetwork]] = None
             if self.power_config["model_partition"]:
                 # get model partitions (the original model and the models with additional output)
                 # the methods return a copy of the original model (but modified)
@@ -414,22 +404,68 @@ class LegacyEvaluator(BaseEvaluator):
                     *(torch_model.prune_unnecessary_layers(idx)
                       for idx in model_builder.additional_output_idx)
                 ]
-                # might need to clean parsed network as well? TODO check
+
+            fitness_metric: Optional[FitnessMetric |
+                                     tuple[FitnessMetric]] = None
+            fitness_metric_value: Optional[float | tuple[float]] = None
+            if self.fitness_metric_name is not None:
+                fitness_metric = create_fitness_metric(self.fitness_metric_name,
+                                                       self.fitness_metric_data,
+                                                       loss_function=loss_function,
+                                                       power_config=self.power_config)
+                if self.power_config["model_partition"]:
+                    fitness_metric = (fitness_metric,) + tuple(
+                        deepcopy(fm) for fm in fitness_metric) if self.power_config["model_partition"] else fitness_metric
+                    fitness_metric_value = tuple(
+                        fm.compute_metric(mp, test_loader, device) for fm, mp in zip(fitness_metric, (torch_model, *model_partitions))
+                    )
+                else:
+                    fitness_metric_value = fitness_metric.compute_metric(
+                        torch_model, test_loader, device)
 
             if self.power_config['measure_power']['test']:
                 if isinstance(fitness_metric, PowerMetric):
-                    power_data['test'] = fitness_metric.power_data
-                else:
-                    power_metric = PowerMetric(self.power_config)
-                    power_metric.compute_metric(
-                        torch_model, test_loader, device)
-                    power_data['test'] = power_metric.power_data
+                    if self.power_config["model_partition"]:
+                        power_data['test'] = {
+                            "full": fitness_metric[0].power_data
+                        }
+                        for i, fm in enumerate(fitness_metric[1:]):
+                            power_data['test'][f"partition_{i}"] = fm.power_data
 
-            accuracy: Optional[float]
+                    else:
+                        power_data['test'] = fitness_metric.power_data
+                else:
+                    if self.power_config["model_partition"]:
+                        power_metric_full = PowerMetric(self.power_config)
+                        power_metric_full.compute_metric(
+                            torch_model, test_loader, device)
+
+                        power_data['test'] = {
+                            "full": power_metric_full.power_data
+                        }
+
+                        power_metric = tuple(
+                            PowerMetric(self.power_config) for _ in model_partitions)
+                        for i, (pm, mp) in enumerate(zip(power_metric, model_partitions)):
+                            pm.compute_metric(mp, test_loader, device)
+                            power_data['test'][f"partition_{i}"] = pm.power_data
+                    else:
+                        power_metric = PowerMetric(self.power_config)
+                        power_metric.compute_metric(
+                            torch_model, test_loader, device)
+                        power_data['test'] = power_metric.power_data
+
+            accuracy: Optional[float | tuple[float]]
             if fitness_metric is AccuracyMetric:
-                accuracy = None
+                accuracy = [
+                    None] * self.power_config["model_partition_n"] if self.power_config["model_partition"] else None
             else:
-                accuracy = AccuracyMetric().compute_metric(torch_model, test_loader, device)
+                if self.power_config["model_partition"]:
+                    accuracy = tuple(AccuracyMetric().compute_metric(pm, test_loader, device)
+                                    for pm in model_partitions)
+                    accuracy = (np.mean(accuracy),) + accuracy
+                else:
+                    accuracy = AccuracyMetric().compute_metric(torch_model, test_loader, device)
 
             if self.fitness_function_params is not None:
                 fitness_function = CustomFitnessFunction(
@@ -437,22 +473,39 @@ class LegacyEvaluator(BaseEvaluator):
 
                 pre_computed = {}
                 if accuracy is not None:
-                    pre_computed['accuracy'] = accuracy
+                    if self.power_config["model_partition"]:
+                        pre_computed['accuracy'] = accuracy[0]
+                        for i, acc in enumerate(accuracy[1:]):
+                            pre_computed[f"accuracy_{i}"] = acc
+                    else:
+                        pre_computed['accuracy'] = accuracy
                 if self.power_config['measure_power']['test']:
-                    pre_computed['energy'] = power_data['test']["energy"]["mean"]
-                    pre_computed['power'] = power_data['test']["power"]["mean"]
+                    if self.power_config["model_partition"]:
+                        for i in range(self.power_config["model_partition_n"]):
+                            pre_computed[f"energy_{i}"] = power_data['test'][f"partition_{i}"]["energy"]["mean"]
+                            pre_computed[f"power_{i}"] = power_data['test'][f"partition_{i}"]["power"]["mean"]
+                        pre_computed['energy'] = power_data['test']["full"]["energy"]["mean"]
+                        pre_computed['power'] = power_data['test']["full"]["power"]["mean"]
+                    else:
+                        pre_computed['energy'] = power_data['test']["energy"]["mean"]
+                        pre_computed['power'] = power_data['test']["power"]["mean"]
                 fitness_value = Fitness(fitness_function.compute_fitness(
                     torch_model, test_loader, device, pre_computed), type(fitness_function))
             else:
                 fitness_value = Fitness(
                     fitness_metric_value, type(fitness_metric))
 
+            n_layers: int | tuple[int] = (len(torch_model.evolved_layers),) + tuple(len(
+                mp.evolved_layers) for mp in model_partitions) \
+                if self.power_config["model_partition"] \
+                else len(parsed_network.layers)
+
             return EvaluationMetrics(
                 is_valid_solution=True,
                 fitness=fitness_value,
                 accuracy=accuracy,
                 n_trainable_parameters=trainable_params_count,
-                n_layers=len(parsed_network.layers),
+                n_layers=n_layers,
                 n_epochs=trainer.trained_epochs,
                 losses=trainer.loss_values,
                 training_time_spent=time()-start,

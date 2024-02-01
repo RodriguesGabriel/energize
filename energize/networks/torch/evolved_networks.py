@@ -1,16 +1,15 @@
-from copy import deepcopy
 import logging
+from copy import deepcopy
 from typing import Dict, List, Optional, Tuple, Union
-from numpy import add
 
 import torch
-from torch import nn, Tensor
+from numpy import add
+from torch import Tensor, nn
 
-from energize.networks import Dimensions
 from energize.misc.constants import SEPARATOR_CHAR
 from energize.misc.enums import Device, LayerType
 from energize.misc.utils import InputLayerId, LayerId
-
+from energize.networks import Dimensions
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +124,8 @@ class EvolvedNetwork(nn.Module):
     def prune_unnecessary_layers(self, additional_output_id: LayerId) -> 'EvolvedNetwork':
         model_partition: EvolvedNetwork = deepcopy(self)
 
-        layers_to_keep = model_partition.get_connected_layers(additional_output_id)
+        layers_to_keep = model_partition.get_connected_layers(
+            additional_output_id)
         layers_to_keep.add(additional_output_id)
 
         layers_to_prune = set(model_partition.layers_connections.keys()) - \
@@ -152,10 +152,7 @@ class EvolvedNetwork(nn.Module):
 
         model_partition.output_layer_idx = [additional_output_id]
 
-        print(f"Evolved layers: {model_partition.evolved_layers}")
-        print(f"Layers to keep: {layers_to_keep}")
-
-        # check if the number of layers ir right but don't consider the input layer (-1)
+        # check if the number of layers is right but don't consider the input layer (-1)
         assert len(model_partition.evolved_layers) == len(layers_to_keep) - 1
         assert len(model_partition.output_layer_idx) == 1
 
@@ -163,7 +160,6 @@ class EvolvedNetwork(nn.Module):
 
 
 class LegacyNetwork(EvolvedNetwork):
-
     def __init__(self,
                  evolved_layers: List[Tuple[str, nn.Module]],
                  layers_connections: Dict[LayerId, List[InputLayerId]],

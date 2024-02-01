@@ -375,14 +375,13 @@ class Grammar:
             assert isinstance(symbol, Terminal)
             if symbol.attribute is None:
                 return [f"{symbol.name}"]
-            else:
-                if symbol.attribute.values is None:
-                    # print(symbol.attribute.values)
-                    symbol.attribute.update_bounds({
-                        'partition_point': (-1, 0)  # TODO
-                    }, symbol.name)
-                    symbol.attribute.generate()
-                    # print(symbol.attribute.values)
-                assert symbol.attribute.values is not None
-                return [f"{symbol.name}:{','.join(map(str, symbol.attribute.values))}"]
+
+            if symbol.attribute.values is None:
+                # print(symbol.attribute.values)
+                if symbol.attribute.dynamically_bounded:
+                    raise ValueError(
+                        f"Attribute [{symbol.name}] of type [{symbol.attribute.var_type}] is dynamically bounded but no bounds were provided.")
+                symbol.attribute.generate()
+            assert symbol.attribute.values is not None
+            return [f"{symbol.name}:{','.join(map(str, symbol.attribute.values))}"]
         return phenotype

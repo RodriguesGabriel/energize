@@ -88,11 +88,8 @@ class FitnessMetric(ABC):
 
 
 class AccuracyMetric(FitnessMetric):
-    def __init__(self, num_outputs: int = 1, output_num: int = 0, batch_size: Optional[int] = None, loss_function: Any = None) -> None:
+    def __init__(self, batch_size: Optional[int] = None, loss_function: Any = None) -> None:
         super().__init__(batch_size, loss_function)
-        self.output_num: int = output_num
-        self.num_outputs: int = num_outputs
-        assert self.output_num < self.num_outputs
 
     def compute_metric(self, model: nn.Module, data_loader: DataLoader, device: Device) -> float:
         model.eval()
@@ -105,7 +102,7 @@ class AccuracyMetric(FitnessMetric):
                     data[1].to(device.value, non_blocking=True)
                 outputs = model(inputs)
                 if isinstance(outputs, tuple):
-                    outputs = outputs[self.output_num]
+                    outputs = outputs[0]
                 _, predicted = torch.max(outputs.data, 1)
                 correct_guesses += (predicted ==
                                     labels).float().sum().item()

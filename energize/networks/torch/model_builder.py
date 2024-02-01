@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 import logging
 from math import ceil
+import sys
 import warnings
 from typing import Dict, Iterable, List, Optional, Tuple, TYPE_CHECKING
 
@@ -97,12 +98,13 @@ class ModelBuilder():
 
         # add additional output layer
         if self.parsed_network.model_partition_points is not None:
+            assert self.parsed_network.layers[-1].layer_type == LayerType.FC
             layer_id = LayerId(len(self.parsed_network.layers))
             layer = Layer(layer_id,
                           layer_type=LayerType('fc'),
                           layer_parameters={
                               "act": "softmax",
-                              "out_features": 10,  # HACK grc change this
+                              "out_features": self.parsed_network.layers[-1].layer_parameters['out_features'],
                               "bias": "True"
                           })
             self.parsed_network.layers_connections[layer_id] = [
@@ -111,7 +113,7 @@ class ModelBuilder():
             self.additional_output_idx.append(layer_id)
 
         connections_to_use: Dict[LayerId, List[InputLayerId]
-                            ] = self.parsed_network.layers_connections
+                                 ] = self.parsed_network.layers_connections
 
         try:
             for i, l in enumerate(self.parsed_network.layers):
@@ -143,7 +145,8 @@ class ModelBuilder():
                         extra_layer, extra_layer_name, False)
                     collected_extra_torch_layers.append(
                         (extra_layer_name, layer_to_add))
-                layer_to_add = self._create_torch_layer(l, layer_name, l.layer_id in self.additional_output_idx)
+                layer_to_add = self._create_torch_layer(
+                    l, layer_name, l.layer_id in self.additional_output_idx)
                 torch_layers.append((layer_name, layer_to_add))
 
             if evaluation_type is LegacyEvaluator:
@@ -332,9 +335,7 @@ class ModelBuilder():
         return nn.Sequential(*torch_layers_to_add)
 
     def _build_dropout_layer(self, layer: Layer) -> nn.Module:
-        # TODO: check if this is correct
-        layer.layer_parameters['p'] = min(
-            0.5, layer.layer_parameters.pop("rate"))
+        layer.layer_parameters['p'] = layer.layer_parameters.pop("rate")
         return nn.Dropout(**layer.layer_parameters)
 
     def _build_dense_layer(self, layer: Layer, layer_name: str, input_dimensions: Dimensions, require_flatten: bool) -> nn.Sequential:

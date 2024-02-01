@@ -71,9 +71,7 @@ def mutation_dsge(layer: 'Genotype', grammar: Grammar, dynamic_bounds: Optional[
             for symbol in new_derivation:
                 if isinstance(symbol, Terminal) and symbol.attribute is not None:
                     assert symbol.attribute.values is None
-                    symbol.attribute.update_bounds({
-                        'partition_point': (-1, 0)  # TODO
-                    }, symbol.name)
+                    symbol.attribute.update_bounds(dynamic_bounds, symbol.name)
                     symbol.attribute.generate()
             layer.expansions[random_nt][nt_derivation_idx] = new_derivation
         else:
@@ -243,8 +241,6 @@ def select_fittest(population: List[Individual],
                             f" Current fitness {parent_10min.fitness}")
                 path: str = persistence.build_individual_path(
                     checkpoint_base_path, run, generation, parent_10min.id)
-                print(f"Reusing individual from path: {path}")
-                print("Macro genotype from parent 10 min: ", parent_10min.macro)
                 parent_10min.evaluate(grammar,
                                       cnn_eval,
                                       path,
@@ -260,22 +256,19 @@ def select_fittest(population: List[Individual],
                 assert parent_10min.fitness is not None
                 if parent_10min.fitness > elite.fitness and parent_10min.fitness > parent.fitness:
                     return deepcopy(parent_10min)
-                elif elite.fitness > parent_10min.fitness and elite.fitness > parent.fitness:
+                if elite.fitness > parent_10min.fitness and elite.fitness > parent.fitness:
                     return deepcopy(elite)
-                else:
-                    return deepcopy(parent)
-            else:
-                if elite.fitness > parent.fitness:
-                    return deepcopy(elite)
-                else:
-                    return deepcopy(parent)
-        elif retrain_10min:
+                return deepcopy(parent)
+
+            if elite.fitness > parent.fitness:
+                return deepcopy(elite)
+
+            return deepcopy(parent)
+        if retrain_10min:
             assert parent_10min.fitness is not None
             if parent_10min.fitness > parent.fitness:
                 return deepcopy(parent_10min)
-            else:
-                return deepcopy(parent)
-        else:
             return deepcopy(parent)
+        return deepcopy(parent)
 
     return deepcopy(parent)
