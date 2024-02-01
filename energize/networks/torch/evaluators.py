@@ -409,7 +409,7 @@ class LegacyEvaluator(BaseEvaluator):
                                                        power_config=self.power_config)
                 if self.power_config["model_partition"]:
                     fitness_metric = (fitness_metric,) + tuple(
-                        deepcopy(fm) for fm in fitness_metric) if self.power_config["model_partition"] else fitness_metric
+                        deepcopy(fitness_metric) for _ in model_partitions) if self.power_config["model_partition"] else fitness_metric
                     fitness_metric_value = tuple(
                         fm.compute_metric(mp, test_loader, device) for fm, mp in zip(fitness_metric, (torch_model, *model_partitions))
                     )

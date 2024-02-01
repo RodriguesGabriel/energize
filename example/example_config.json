@@ -1,49 +1,77 @@
 {
-    "checkpoints_path": "./experiments/supervised_10",
+    "checkpoints_path": "./experiments/example",
+    "statistics_format": "json",
     "energize": {
         "measure_power": {
             "train": true,
             "test": true,
-            "num_measurements_test": 10,
+            "num_measurements_test": 30,
             "modules": true
-        }
+        },
+        "model_partition": true,
+        "model_partition_n": 2,
+        "ensure_gpu_exclusivity": false
     },
     "evolutionary": {
-        "generations": 2,
-        "lambda": 2,
+        "generations": 150,
+        "lambda": 4,
         "max_epochs": 1000000,
         "mutation": {
             "add_connection": 0.0,
             "remove_connection": 0.0,
-            "add_layer": 0.8,
-            "reuse_layer": 0.8,
-            "remove_layer": 0.8,
-            "reuse_module": 0.8,
-            "remove_module": 0.8,
-            "dsge_layer": 0.8,
-            "macro_layer": 0.8,
+            "add_layer": 0.25,
+            "reuse_layer": 0.15,
+            "remove_layer": 0.25,
+            "reuse_module": 0.15,
+            "remove_module": 0.25,
+            "dsge_layer": 0.15,
+            "macro_layer": 0.3,
             "train_longer": 0.2
         },
-        "fitness_metric": "accuracy"
+        "fitness_metric": "accuracy",
+        "fitness_function": [
+            {
+                "metric": "accuracy_1",
+                "objective": "maximize",
+                "weight": 1
+            },
+            {
+                "metric": "power_1",
+                "objective": "minimize",
+                "weight": 10,
+                "conditions": [
+                    {
+                        "metric": "accuracy_1",
+                        "type": "greater_than",
+                        "value": 0.7
+                    },
+                    {
+                        "metric": "accuracy_1",
+                        "type": "less_than",
+                        "value": 0.9
+                    }
+                ]
+            }
+        ]
     },
     "network": {
         "architecture": {
             "reuse_layer": 0.7,
             "macro_structure": [
-                "learning"
+                "learning",
+                "model_partition"
             ],
             "output": "softmax",
             "modules": [
                 {
                     "name": "features",
                     "network_structure_init": [
+                        2,
                         3,
-                        4,
-                        5,
-                        6
+                        4
                     ],
                     "network_structure": [
-                        3,
+                        1,
                         30
                     ],
                     "levels_back": 1
@@ -55,7 +83,7 @@
                     ],
                     "network_structure": [
                         1,
-                        2
+                        10
                     ],
                     "levels_back": 1
                 }
@@ -68,7 +96,7 @@
                 "evo_test": 0.1
             },
             "learning_type": "supervised",
-            "default_train_time": 300,
+            "default_train_time": 1,
             "augmentation": {
                 "train": {
                     "resize": {
