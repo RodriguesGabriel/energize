@@ -165,7 +165,7 @@ def mutation(individual: Individual,
                                                individual_copy.id, m_idx, layer_idx)
 
     dynamic_bounds = {
-        'partition_point': (-1, individual_copy.get_num_layers() - 1)
+        'partition_point': (0, individual_copy.get_num_layers() - 1)
     }
     # macro level mutation
     for macro in individual_copy.macro:

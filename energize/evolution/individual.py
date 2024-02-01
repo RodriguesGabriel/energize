@@ -141,7 +141,7 @@ class Individual:
         self.output = grammar.initialise(self.output_rule)
 
         dynamic_bounds = {
-            'partition_point': (-1, self.get_num_layers() - 1)
+            'partition_point': (0, self.get_num_layers() - 1)
         }
         # Initialise the macro structure: learning, data augmentation, etc.
         for rule in self.macro_rules:

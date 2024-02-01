@@ -1,15 +1,20 @@
 checkpoints_path: ./experiments/supervised_10
 
+statistics_format: json
+
 energize:
   measure_power:
     train: true
     test: true
     num_measurements_test: 10
     modules: true
+  model_partition: true
+  model_partition_n: 2
+  ensure_gpu_exclusivity: false
 
 evolutionary:
-  generations: 2
-  lambda: 2
+  generations: 3
+  lambda: 3
   max_epochs: 1000000
   mutation:
     add_connection: 0.0
@@ -22,27 +27,28 @@ evolutionary:
     dsge_layer: 0.8
     macro_layer: 0.8
     train_longer: 0.2
-  fitness_metric: accuracy
-  # fitness_function:
-  #   - metric: accuracy
-  #     objective: maximize
-  #     weight: 1
-  #   - metric: power
-  #     objective: minimize
-  #     weight: 10
-  #     conditions:
-  #       - metric: accuracy
-  #         type: greater_than
-  #         value: 0.7
-  #       - metric: accuracy
-  #         type: less_than
-  #         value: 0.9
+  # fitness_metric: accuracy_1
+  fitness_function:
+    - metric: accuracy_1
+      objective: maximize
+      weight: 1
+    - metric: power_1
+      objective: minimize
+      weight: 10
+      conditions:
+        - metric: accuracy_1
+          type: greater_than
+          value: 0.7
+        - metric: accuracy_1
+          type: less_than
+          value: 0.9
 
 network:
   architecture:
     reuse_layer: 0.7
     macro_structure:
       - learning
+      - model_partition
     output: softmax
     modules:
       - name: features
@@ -59,7 +65,7 @@ network:
       evo_validation: 0.2
       evo_test: 0.1
     learning_type: supervised
-    default_train_time: 300
+    default_train_time: 1
     augmentation:
       train:
         resize:
