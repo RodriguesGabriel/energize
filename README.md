@@ -58,7 +58,7 @@ Example:
 ```
 python3 -u -m energize.main \
     -d mnist \
-    -c example/example_config.yaml \
+    -c example/example_config.json \
     -g example/example.grammar \
     --run 0 \
     --gpu-enabled
@@ -70,7 +70,7 @@ In case several seeds are needed to be run, that can be done with Bash:
 for i in {7..9}; do \
     python3 -u -m energize.main \
     -d mnist \
-    -c example/example_config.yaml \
+    -c example/example_config.json \
     -g example/example.grammar \
     -r $i \
     --gpu-enabled; \

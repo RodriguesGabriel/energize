@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from argparse import ArgumentParser
-import os
 import logging
+import os
 import random
 import time
-from typing import Any, List, Optional, TYPE_CHECKING
+from argparse import ArgumentParser
+from typing import TYPE_CHECKING, Any, List, Optional
 
 import numpy as np
 import torch
@@ -17,10 +17,10 @@ from energize.evolution.grammar import Grammar
 from energize.misc import Checkpoint
 from energize.misc.constants import DATASETS_INFO, STATS_FOLDER_NAME
 from energize.misc.enums import FitnessMetricName
-from energize.misc.persistence import RestoreCheckpoint, build_overall_best_path
-from energize.misc.utils import is_valid_file, is_yaml_file
+from energize.misc.persistence import (RestoreCheckpoint,
+                                       build_overall_best_path)
+from energize.misc.utils import is_valid_file, is_valid_config_file
 from energize.networks.torch.evaluators import create_evaluator
-
 
 if TYPE_CHECKING:
     from energize.networks.torch.evaluators import BaseEvaluator
@@ -111,7 +111,7 @@ def main(run: int,
 if __name__ == '__main__':  # pragma: no cover
     parser: ArgumentParser = ArgumentParser(allow_abbrev=False)
     parser.add_argument("--config-path", '-c', required=True, help="Path to the config file to be used",
-                        type=lambda x: is_yaml_file(parser, x))
+                        type=lambda x: is_valid_config_file(parser, x))
     parser.add_argument("--dataset-name", '-d', required=True, help="Name of the dataset to be used",
                         type=str, choices=list(DATASETS_INFO.keys()))
     parser.add_argument("--grammar-path", '-g', required=True, help="Path to the grammar to be used",

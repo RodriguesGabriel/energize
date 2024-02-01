@@ -4,9 +4,9 @@ import logging
 import shutil
 from typing import Any, Dict, List, Optional
 
-from jsonschema import validate  # type: ignore
-import yaml  # type: ignore
-
+from jsonschema import validate
+import yaml
+import json
 from energize.misc.enums import TransformOperation
 from energize.networks import ModuleConfig
 
@@ -35,11 +35,17 @@ class Config():
 
     def _load(self, path: str) -> Any:
         with open(path, "r", encoding="utf8") as f:
-            return yaml.safe_load(f)
+            if path.endswith(".json"):
+                return json.load(f)
+            if path.endswith(".yaml"):
+                return yaml.safe_load(f)
+            raise ValueError(
+                f"File extension not supported: {path.split('.')[-1]}")
 
     def _backup_used_config(self, origin_filepath: str, destination: str) -> None:
+        extension = origin_filepath.split('.')[-1]
         destination_filepath: str = os.path.join(
-            destination, "used_config.yaml")
+            destination, f"used_config.{extension}")
         # if there is a config file backed up already and it is different than the one we are trying to backup
         if os.path.isfile(destination_filepath) and \
                 filecmp.cmp(origin_filepath, destination_filepath) is False:
@@ -52,17 +58,15 @@ class Config():
             shutil.copyfile(origin_filepath, destination_filepath)
 
     def _validate_config(self) -> None:
-        schema_path: str = os.path.join("energize", "config", "schema.yaml")
+        schema_path: str = os.path.join("energize", "config", "schema.json")
         schema: Any = self._load(schema_path)
         validate(self.config, schema)
-        logger.info(
-            f"Type of training: {self.config['network']['learning']['learning_type']}")
+        logger.info("Type of training: %s", self.config['network']['learning']['learning_type'])
         if self.config['network']['learning']['learning_type'] == "supervised":
             if self.config['network']['learning']['augmentation']['train'] is not None:
                 self._validate_augmentation_params(
                     self.config['network']['learning']['augmentation']['train'])
-            logger.info(
-                f"Augmentation used in training: {self.config['network']['learning']['augmentation']['train']}")
+            logger.info("Augmentation used in training: %s", self.config['network']['learning']['augmentation']['train'])
         else:
             raise ValueError(
                 f"Learning type {self.config['network']['learning']['learning_type']} not supported")
@@ -71,8 +75,7 @@ class Config():
             self._validate_augmentation_params(
                 self.config['network']['learning']['augmentation']['test'])
 
-        logger.info(
-            f"Augmentation used in test: {self.config['network']['learning']['augmentation']['test']}")
+        logger.info("Augmentation used in test: %s", self.config['network']['learning']['augmentation']['test'])
 
         if 'model_partition' in self.config['network']['architecture']['macro_structure'] \
                 and 'energize' in self.config \

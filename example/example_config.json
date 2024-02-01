@@ -1,0 +1,86 @@
+{
+    "checkpoints_path": "./experiments/supervised_10",
+    "energize": {
+        "measure_power": {
+            "train": true,
+            "test": true,
+            "num_measurements_test": 10,
+            "modules": true
+        }
+    },
+    "evolutionary": {
+        "generations": 2,
+        "lambda": 2,
+        "max_epochs": 1000000,
+        "mutation": {
+            "add_connection": 0.0,
+            "remove_connection": 0.0,
+            "add_layer": 0.8,
+            "reuse_layer": 0.8,
+            "remove_layer": 0.8,
+            "reuse_module": 0.8,
+            "remove_module": 0.8,
+            "dsge_layer": 0.8,
+            "macro_layer": 0.8,
+            "train_longer": 0.2
+        },
+        "fitness_metric": "accuracy"
+    },
+    "network": {
+        "architecture": {
+            "reuse_layer": 0.7,
+            "macro_structure": [
+                "learning"
+            ],
+            "output": "softmax",
+            "modules": [
+                {
+                    "name": "features",
+                    "network_structure_init": [
+                        3,
+                        4,
+                        5,
+                        6
+                    ],
+                    "network_structure": [
+                        3,
+                        30
+                    ],
+                    "levels_back": 1
+                },
+                {
+                    "name": "classification",
+                    "network_structure_init": [
+                        1
+                    ],
+                    "network_structure": [
+                        1,
+                        2
+                    ],
+                    "levels_back": 1
+                }
+            ]
+        },
+        "learning": {
+            "data_splits": {
+                "evo_train": 0.7,
+                "evo_validation": 0.2,
+                "evo_test": 0.1
+            },
+            "learning_type": "supervised",
+            "default_train_time": 300,
+            "augmentation": {
+                "train": {
+                    "resize": {
+                        "size": 32
+                    }
+                },
+                "test": {
+                    "resize": {
+                        "size": 32
+                    }
+                }
+            }
+        }
+    }
+}

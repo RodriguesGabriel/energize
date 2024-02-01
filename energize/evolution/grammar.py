@@ -228,7 +228,7 @@ class Grammar:
 
     def _backup_used_grammar(self, origin_filepath: str, destination: str) -> None:
         destination_filepath: str = os.path.join(
-            destination, "used_grammar.yaml")
+            destination, "used_grammar.grammar")
         # if there is a config file backed up already and it is different than the one we are trying to backup
         if os.path.isfile(destination_filepath) and \
                 filecmp.cmp(origin_filepath, destination_filepath) is False:

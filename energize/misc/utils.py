@@ -18,13 +18,10 @@ def is_valid_file(parser: ArgumentParser, arg: Any) -> object:
 # pylint: disable=inconsistent-return-statements
 
 
-def is_yaml_file(parser: ArgumentParser, arg: Any) -> object:
-    if is_valid_file(parser, arg):
-        if not arg.endswith(".yaml"):
-            parser.error(f"The file {arg} is not a yaml file")
-        else:
-            return arg
-    parser.error(f"The file {arg} is not a yaml file")
+def is_valid_config_file(parser: ArgumentParser, arg: Any) -> object:
+    if is_valid_file(parser, arg) and arg.endswith((".yaml", ".json")):
+        return arg
+    parser.error(f"The file {arg} is not a yaml or json file")
 
 
 class InvalidNetwork(Exception):
