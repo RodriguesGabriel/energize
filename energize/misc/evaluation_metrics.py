@@ -18,7 +18,7 @@ class EvaluationMetrics:
     n_epochs: int
     total_epochs_trained: int
     max_epochs_reached: bool
-    power: dict | None
+    power: Optional[dict]
 
     @classmethod
     def default(cls, fitness: Fitness) -> "EvaluationMetrics":

@@ -127,16 +127,18 @@ class Trainer:
             print(traceback.format_exc())
             raise InvalidNetwork(str(e)) from e
 
-    def multi_output_train(self) -> None:
+    def multi_output_train(self, n_outputs: int) -> None:
+        assert n_outputs > 1
+
         logging.info("Initiating supervised training for multiple outputs")
         self.loss_values = {
             "train_loss": [],
-            "train_output_A_loss": [],
-            "train_output_B_loss": [],
             "val_loss": [],
-            "val_output_A_loss": [],
-            "val_output_B_loss": [],
         }
+        for i in range(n_outputs):
+            self.loss_values[f"train_output_{i}_loss"] = []
+            self.loss_values[f"val_output_{i}_loss"] = []
+
         try:
             epoch: int = self.initial_epoch
             n_batches_train: int = len(self.train_data_loader)
@@ -149,7 +151,8 @@ class Trainer:
 
             while epoch < self.n_epochs and self.stop_training is False:
                 self._call_on_epoch_begin_callbacks()
-                total_loss = torch.zeros(size=(2,), device=self.device.value)
+                total_loss = torch.zeros(
+                    size=(n_outputs,), device=self.device.value)
                 for i, data in enumerate(self.train_data_loader, 0):
                     inputs, labels = data[0].to(self.device.value, non_blocking=True), \
                         data[1].to(self.device.value, non_blocking=True)
@@ -158,44 +161,47 @@ class Trainer:
                             n_batches_train, self.n_epochs, i)
                     # zero the parameter gradients
                     self.optimiser.zero_grad()
-                    output_A, output_B = self.model(inputs)
-                    loss_A = self.loss_function(output_A, labels)
-                    loss_B = self.loss_function(output_B, labels)
-                    total_loss[0] += loss_A / n_batches_train
-                    total_loss[1] += loss_B / n_batches_train
-                    loss_A.backward()
-                    loss_B.backward()
+                    outputs = self.model(inputs)
+                    loss_objects = []
+                    for i, output in enumerate(outputs):
+                        loss = self.loss_function(output, labels)
+                        loss_objects.append(loss)
+                        total_loss[i] += loss / n_batches_train
+
+                    for loss in loss_objects:
+                        loss.backward()
+
                     self.optimiser.step()
-                self.loss_values["train_output_A_loss"].append(
-                    round(float(total_loss[0]), 3))
-                self.loss_values["train_output_B_loss"].append(
-                    round(float(total_loss[1]), 3))
+                for i in range(n_outputs):
+                    self.loss_values[f"train_output_{i}_loss"].append(
+                        round(float(total_loss[i]), 3))
+
                 self.loss_values["train_loss"].append(
-                    round(float(total_loss[0] + total_loss[1]), 3))
+                    round(float(sum(total_loss)), 3))
 
                 if self.validation_data_loader is not None:
                     with torch.no_grad():
                         self.model.eval()
                         total_loss = torch.zeros(
-                            size=(2,), device=self.device.value)
+                            size=(n_outputs,), device=self.device.value)
                         for i, data in enumerate(self.validation_data_loader, 0):
                             inputs, labels = data[0].to(self.device.value, non_blocking=True), \
                                 data[1].to(self.device.value,
                                            non_blocking=True)
-                            output_A, output_B = self.model(inputs)
-                            total_loss[0] += self.loss_function(
-                                output_A, labels) / n_batches_validation
-                            total_loss[1] += self.loss_function(
-                                output_B, labels) / n_batches_validation
+                            outputs = self.model(inputs)
+                            for i, output in enumerate(outputs):
+                                total_loss[i] += self.loss_function(
+                                    output, labels) / n_batches_validation
 
+                        for i in range(n_outputs):
+                            self.loss_values[f"val_output_{i}_loss"].append(
+                                round(float(total_loss[i]), 3))
                         self.loss_values["val_loss"].append(
-                            round(float(total_loss[0] + total_loss[1]), 3))
-                        self.loss_values["val_output_A_loss"].append(
-                            round(float(total_loss[0]), 3))
-                        self.loss_values["val_output_B_loss"].append(
-                            round(float(total_loss[1]), 3))
+                            round(float(sum(total_loss)), 3))
+
                         # Used for early stopping criteria
-                        self.validation_loss.append(float(total_loss[0] + total_loss[1]))
+                        self.validation_loss.append(
+                            float(total_loss[0] + total_loss[1]))
                     self.model.train()
                 if self.scheduler is not None:
                     self.scheduler.step()

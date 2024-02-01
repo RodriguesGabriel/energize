@@ -1,14 +1,19 @@
 from __future__ import annotations
+from copy import deepcopy
 
 import logging
 import os
 import re
+import sys
 from abc import ABC, abstractmethod
+from optparse import Option
 from time import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
-from numpy import power
 
+import pynvml
 import torch
+import torchsummary
+from numpy import power
 from torch import Size, nn
 from torch.utils.data import DataLoader, Subset
 
@@ -42,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_fitness_metric(metric_name: FitnessMetricName,
-                          metric_data: int | None,
+                          metric_data: Optional[int],
                           loss_function: Optional[Any] = None,
                           power_config: PowerConfig = None) -> FitnessMetric:
     if metric_name is FitnessMetricName.ACCURACY \
@@ -65,13 +70,13 @@ def create_evaluator(dataset_name: str,
                      energize_params: Dict[str, Any],
                      is_gpu_run: bool) -> 'BaseEvaluator':
 
-    fitness_metric_name: FitnessMetricName | None = None
-    fitness_metric_data: int | None = None
+    fitness_metric_name: Optional[FitnessMetricName] = None
+    fitness_metric_data: Optional[int] = None
     if 'fitness_metric' in evo_params:
         fitness_metric_name, fitness_metric_data = FitnessMetricName.new(
             evo_params['fitness_metric'])
 
-    fitness_function_params: list[dict] | None = evo_params[
+    fitness_function_params: Optional[list[dict]] = evo_params[
         'fitness_function'] if 'fitness_function' in evo_params else None
 
     train_transformer: Optional[BaseTransformer]
@@ -114,13 +119,13 @@ def create_evaluator(dataset_name: str,
 
 class BaseEvaluator(ABC):
     def __init__(self,
-                 fitness_metric_name: FitnessMetricName | None,
-                 fitness_metric_data: int | None,
-                 fitness_function_params: list[dict] | None,
+                 fitness_metric_name: Optional[FitnessMetricName],
+                 fitness_metric_data: Optional[int],
+                 fitness_function_params: Optional[list[dict]],
                  seed: int,
                  user_chosen_device: Device,
                  dataset: Dict[DatasetType, Subset],
-                 power_config: PowerConfig | None) -> None:
+                 power_config: Optional[PowerConfig]) -> None:
         """
             Creates the Evaluator instance and loads the dataset.
 
@@ -131,16 +136,17 @@ class BaseEvaluator(ABC):
         """
         assert fitness_metric_name is not None or fitness_function_params is not None
 
-        self.fitness_metric_name: FitnessMetricName | None = fitness_metric_name
-        self.fitness_metric_data: int | None = fitness_metric_data
-        self.fitness_function_params: list[dict] | None = fitness_function_params
+        self.fitness_metric_name: Optional[FitnessMetricName] = fitness_metric_name
+        self.fitness_metric_data: Optional[int] = fitness_metric_data
+        self.fitness_function_params: Optional[list[dict]
+                                               ] = fitness_function_params
         self.seed: int = seed
         self.user_chosen_device: Device = user_chosen_device
         self.dataset = dataset
-        self.power_config: PowerConfig | None = power_config
+        self.power_config: Optional[PowerConfig] = power_config
 
     @staticmethod
-    def _calculate_invalid_network_fitness(metric_name: FitnessMetricName | None) -> Fitness:
+    def _calculate_invalid_network_fitness(metric_name: Optional[FitnessMetricName]) -> Fitness:
         if metric_name is None:
             return CustomFitnessFunction.worst_fitness()
         if metric_name.value not in FitnessMetricName.enum_values():
@@ -222,8 +228,8 @@ class BaseEvaluator(ABC):
                          model_saving_dir: str,
                          metadata_info: Dict[str, Any],
                          train_time: float,
-                         early_stop: int | None,
-                         power_config: PowerConfig | None) -> List[Callback]:
+                         early_stop: Optional[int],
+                         power_config: Optional[PowerConfig]) -> List[Callback]:
         callbacks: List[Callback] = [ModelCheckpointCallback(model_saving_dir, metadata_info),
                                      TimedStoppingCallback(max_seconds=train_time)]
         if early_stop is not None:
@@ -263,12 +269,12 @@ class BaseEvaluator(ABC):
 class LegacyEvaluator(BaseEvaluator):
     def __init__(self,
                  dataset_name: str,
-                 fitness_metric_name: FitnessMetricName | None,
-                 fitness_metric_data: int | None,
-                 fitness_function_params: list[dict] | None,
+                 fitness_metric_name: Optional[FitnessMetricName],
+                 fitness_metric_data: Optional[int],
+                 fitness_function_params: Optional[list[dict]],
                  seed: int,
                  user_chosen_device: Device,
-                 power_config: PowerConfig | None,
+                 power_config: Optional[PowerConfig],
                  train_transformer: BaseTransformer,
                  test_transformer: BaseTransformer,
                  data_splits: Dict[DatasetType, float]) -> None:
@@ -318,6 +324,7 @@ class LegacyEvaluator(BaseEvaluator):
             model_builder: ModelBuilder = ModelBuilder(
                 parsed_network, device, Size(list(input_size)))
             torch_model = model_builder.assemble_network(type(self))
+
             if reuse_parent_weights \
                     and parent_dir is not None \
                     and len(os.listdir(parent_dir)) > 0:
@@ -368,8 +375,10 @@ class LegacyEvaluator(BaseEvaluator):
                                                               train_time,
                                                               learning_params.early_stop,
                                                               self.power_config))
+
             if self.power_config["model_partition"]:
-                trainer.multi_output_train()
+                trainer.multi_output_train(
+                    self.power_config["model_partition_n"])
             else:
                 trainer.train()
 
@@ -386,7 +395,7 @@ class LegacyEvaluator(BaseEvaluator):
             if self.power_config["model_partition"]:
                 ...
 
-            fitness_metric: FitnessMetric | None = None
+            fitness_metric: Optional[FitnessMetric] = None
             if self.fitness_metric_name is not None:
                 fitness_metric = create_fitness_metric(self.fitness_metric_name,
                                                        self.fitness_metric_data,
@@ -395,7 +404,18 @@ class LegacyEvaluator(BaseEvaluator):
                 fitness_metric_value = fitness_metric.compute_metric(
                     torch_model, test_loader, device)
 
-            # TODO MEASURE EACH MODEL'S POWER
+            model_partitions: Optional[List[nn.Module]] = None
+            if self.power_config["model_partition"]:
+                # get model partitions (the original model and the models with additional output)
+                # the methods return a copy of the original model (but modified)
+                model_partitions = [
+                    torch_model.remove_additional_outputs(
+                        model_builder.additional_output_idx),
+                    *(torch_model.prune_unnecessary_layers(idx)
+                      for idx in model_builder.additional_output_idx)
+                ]
+                # might need to clean parsed network as well? TODO check
+
             if self.power_config['measure_power']['test']:
                 if isinstance(fitness_metric, PowerMetric):
                     power_data['test'] = fitness_metric.power_data

@@ -1,7 +1,7 @@
 import logging
 import random
 from copy import deepcopy
-from typing import TYPE_CHECKING, Dict, List, Tuple
+from typing import TYPE_CHECKING, Dict, List, Tuple, Optional
 
 import numpy as np
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def mutation_dsge(layer: 'Genotype', grammar: Grammar) -> None:
+def mutation_dsge(layer: 'Genotype', grammar: Grammar, dynamic_bounds: Optional[Dict[str, tuple]] = None) -> None:
     nt_keys: List[NonTerminal] = sorted(list(layer.expansions.keys()))
     random_nt: NonTerminal = random.choice(nt_keys)
     nt_derivation_idx: int = random.randint(
@@ -53,6 +53,8 @@ def mutation_dsge(layer: 'Genotype', grammar: Grammar) -> None:
             is_neutral_mutation: bool = True
             while is_neutral_mutation:
                 current_values = tuple(symbol_to_mutate.attribute.values)
+                symbol_to_mutate.attribute.update_bounds(
+                    dynamic_bounds, symbol_to_mutate.name)
                 symbol_to_mutate.attribute.generate()
                 new_values = tuple(symbol_to_mutate.attribute.values)
                 if current_values != new_values:
@@ -69,6 +71,9 @@ def mutation_dsge(layer: 'Genotype', grammar: Grammar) -> None:
             for symbol in new_derivation:
                 if isinstance(symbol, Terminal) and symbol.attribute is not None:
                     assert symbol.attribute.values is None
+                    symbol.attribute.update_bounds({
+                        'partition_point': (-1, 0)  # TODO
+                    }, symbol.name)
                     symbol.attribute.generate()
             layer.expansions[random_nt][nt_derivation_idx] = new_derivation
         else:
@@ -161,10 +166,13 @@ def mutation(individual: Individual,
                 module.layer_remove_connection(grammar,
                                                individual_copy.id, m_idx, layer_idx)
 
+    dynamic_bounds = {
+        'partition_point': (-1, individual_copy.get_num_layers() - 1)
+    }
     # macro level mutation
     for macro in individual_copy.macro:
         if random.random() <= macro_layer_prob:
-            mutation_dsge(macro, grammar)
+            mutation_dsge(macro, grammar, dynamic_bounds)
             logger.info(
                 "Individual %d is going to have a macro mutation", individual_copy.id)
 

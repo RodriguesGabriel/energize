@@ -21,18 +21,31 @@ class Attribute(Generic[T]):
                  num_values: int,
                  min_value: T,
                  max_value: T,
-                 generator: Callable[[int, T, T], List[T]]) -> None:
+                 generator: Callable[[int, T, T], List[T]],
+                 dynamically_bounded: bool) -> None:
         self.var_type = var_type
         self.num_values: int = num_values
         self.min_value: T = min_value
         self.max_value: T = max_value
         self.generator: Callable[[int, T, T], List[T]] = generator
         self.values: Optional[List[T]] = None
+        self.dynamically_bounded: bool = dynamically_bounded
 
     def generate(self) -> None:
         self.values = self.generator(
             self.num_values, self.min_value, self.max_value)
         assert self.values is not None
+
+    def update_bounds(self, bounds: Optional[Dict[str, tuple[T, T]]], symbol_name: str) -> None:
+        if not self.dynamically_bounded:
+            return
+        if bounds is None:
+            raise ValueError(
+                "Attribute is dynamically bounded but no bounds were provided.")
+        if symbol_name not in bounds:
+            raise ValueError(
+                f"Attribute [{symbol_name}] of type [{self.var_type}] not in bounds object.")
+        self.min_value, self.max_value = bounds[symbol_name]
 
     def __repr__(self) -> str:
         return f"Attribute(num_values={self.num_values}," + \
@@ -77,18 +90,29 @@ class Symbol:
                 symbol_str.replace('[', '')\
                           .replace(']', '')\
                           .split(',')
+
+            num_values = int(num_values)
+
+            dynamically_bounded: bool = False
+            if min_value == "_":
+                min_value = sys.float_info.min
+                dynamically_bounded = True
+            if max_value == "_":
+                max_value = sys.float_info.max
+                dynamically_bounded = True
+
             if AttributeType(attribute_type) == AttributeType.INT:
-                attribute = Attribute[int](attribute_type, int(num_values), int(min_value), int(max_value),
-                                           lambda n, min, max: [randint(min, max) for _ in range(n)])
+                attribute = Attribute[int](attribute_type, num_values, int(min_value), int(max_value),
+                                           lambda n, min, max: [randint(min, max) for _ in range(n)], dynamically_bounded)
             elif AttributeType(attribute_type) == AttributeType.FLOAT:
-                attribute = Attribute[float](attribute_type, int(num_values), float(min_value), float(max_value),
-                                             lambda n, min, max: [uniform(min, max) for _ in range(n)])
+                attribute = Attribute[float](attribute_type, num_values, float(min_value), float(max_value),
+                                             lambda n, min, max: [uniform(min, max) for _ in range(n)], dynamically_bounded)
             elif AttributeType(attribute_type) == AttributeType.INT_POWER2:
-                attribute = Attribute[int](attribute_type, int(num_values), int(min_value), int(max_value),
-                                           lambda n, min, max: [2 ** randint(min, max) for _ in range(n)])
+                attribute = Attribute[int](attribute_type, num_values, int(min_value), int(max_value),
+                                           lambda n, min, max: [2 ** randint(min, max) for _ in range(n)], dynamically_bounded)
             elif AttributeType(attribute_type) == AttributeType.INT_POWER2_INV:
-                attribute = Attribute[int](attribute_type, int(num_values), int(min_value), int(max_value),
-                                           lambda n, min, max: [1/(2 ** randint(min, max)) for _ in range(n)])
+                attribute = Attribute[int](attribute_type, num_values, int(min_value), int(max_value),
+                                           lambda n, min, max: [1/(2 ** randint(min, max)) for _ in range(n)], dynamically_bounded)
             else:
                 raise AttributeError(
                     f"Invalid Attribute type: [{attribute_type}]")
@@ -258,15 +282,13 @@ class Grammar:
             print_str += f"{str(_key_)} ::= {' | '.join(production_list)}\n"
         return print_str
 
-    def initialise(self, start_symbol_name: str) -> Genotype:
+    def initialise(self, start_symbol_name: str, dynamic_bounds: Optional[Dict[str, tuple]] = None) -> Genotype:
         start_symbol: NonTerminal = NonTerminal(start_symbol_name)
-        genotype: Genotype = self.initialise_recursive(start_symbol)
-        # print("===============================================================")
-        # print(genotype)
-        # print("===============================================================")
+        genotype: Genotype = self.initialise_recursive(
+            start_symbol, dynamic_bounds)
         return genotype
 
-    def initialise_recursive(self, symbol_to_expand: Symbol) -> Genotype:
+    def initialise_recursive(self, symbol_to_expand: Symbol, dynamic_bounds: Optional[Dict[str, tuple]] = None) -> Genotype:
         genotype: Genotype = Genotype(expansions={}, codons={})
         if isinstance(symbol_to_expand, NonTerminal):
             expansion_possibility: int = randint(
@@ -277,6 +299,8 @@ class Grammar:
                 if isinstance(expanded_symbol, Terminal) and expanded_symbol.attribute is not None:
                     assert expanded_symbol.attribute.values is None
                     # this method has side-effects. The Derivation object is altered because of this
+                    expanded_symbol.attribute.update_bounds(
+                        dynamic_bounds, expanded_symbol.name)
                     expanded_symbol.attribute.generate()
                 genotype += self.initialise_recursive(expanded_symbol)
             genotype.add_to_genome(
@@ -354,6 +378,9 @@ class Grammar:
             else:
                 if symbol.attribute.values is None:
                     # print(symbol.attribute.values)
+                    symbol.attribute.update_bounds({
+                        'partition_point': (-1, 0)  # TODO
+                    }, symbol.name)
                     symbol.attribute.generate()
                     # print(symbol.attribute.values)
                 assert symbol.attribute.values is not None

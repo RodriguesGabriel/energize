@@ -140,11 +140,17 @@ class Individual:
         # Initialise output
         self.output = grammar.initialise(self.output_rule)
 
+        dynamic_bounds = {
+            'partition_point': (-1, self.get_num_layers() - 1)
+        }
         # Initialise the macro structure: learning, data augmentation, etc.
         for rule in self.macro_rules:
-            self.macro.append(grammar.initialise(rule))
+            self.macro.append(grammar.initialise(rule, dynamic_bounds))
 
         return self
+
+    def get_num_layers(self) -> int:
+        return sum(len(m.layers) for m in self.modules)
 
     def _decode(self, grammar: Grammar) -> str:
         """

@@ -41,6 +41,7 @@ class ModelBuilder():
         }
         self.layer_type_counts: Counter = Counter([])
         self.device = device
+        self.additional_output_idx: List[LayerId] = []
 
     @classmethod
     def assemble_optimiser(cls, model_parameters: Iterable[Tensor], optimiser: Optimiser) -> LearningParams:
@@ -91,10 +92,26 @@ class ModelBuilder():
                          evaluation_type: type[BaseEvaluator]) -> EvolvedNetwork:
         layer_to_add: nn.Module
         torch_layers: List[Tuple[str, nn.Module]] = []
-        connections_to_use: Dict[LayerId, List[InputLayerId]
-                                 ] = self.parsed_network.layers_connections
         collected_extra_torch_layers: List[Tuple[str, nn.Module]] = []
         self.layer_type_counts.update(list(LayerType))
+
+        # add additional output layer
+        if self.parsed_network.model_partition_points is not None:
+            layer_id = LayerId(len(self.parsed_network.layers))
+            layer = Layer(layer_id,
+                          layer_type=LayerType('fc'),
+                          layer_parameters={
+                              "act": "softmax",
+                              "out_features": 10,  # HACK grc change this
+                              "bias": "True"
+                          })
+            self.parsed_network.layers_connections[layer_id] = [
+                self.parsed_network.model_partition_points]
+            self.parsed_network.layers.append(layer)
+            self.additional_output_idx.append(layer_id)
+
+        connections_to_use: Dict[LayerId, List[InputLayerId]
+                            ] = self.parsed_network.layers_connections
 
         try:
             for i, l in enumerate(self.parsed_network.layers):
@@ -104,7 +121,6 @@ class ModelBuilder():
                 inputs_shapes: Dict[InputLayerId, Dimensions] = \
                     {input_id: self.layer_shapes[input_id]
                      for input_id in connections_to_use[LayerId(i)]}
-
                 minimum_extra_id: int = len(
                     self.parsed_network.layers) + len(collected_extra_torch_layers)
                 extra_layers: Dict[InputLayerId, Layer] = \
@@ -124,16 +140,15 @@ class ModelBuilder():
                         InputLayerId(extra_layer.layer_id))
 
                     layer_to_add = self._create_torch_layer(
-                        extra_layer, extra_layer_name)
+                        extra_layer, extra_layer_name, False)
                     collected_extra_torch_layers.append(
                         (extra_layer_name, layer_to_add))
-                layer_to_add = self._create_torch_layer(l, layer_name)
+                layer_to_add = self._create_torch_layer(l, layer_name, l.layer_id in self.additional_output_idx)
                 torch_layers.append((layer_name, layer_to_add))
+
             if evaluation_type is LegacyEvaluator:
-                # HACK GRC
-                output_layer_idx = [self.parsed_network.get_output_layer_id()]
-                if len(torch_layers + collected_extra_torch_layers) > 2 and output_layer_idx[0] == len(torch_layers + collected_extra_torch_layers) - 1:
-                    output_layer_idx.append(output_layer_idx[0]-1)
+                output_layer_idx = self.parsed_network.get_output_layer_idx()
+                # TODO check with assert if len(^^) should be 1 or not
                 return LegacyNetwork(torch_layers + collected_extra_torch_layers,
                                      connections_to_use,
                                      output_layer_idx)
@@ -216,8 +231,7 @@ class ModelBuilder():
         raise ValueError(
             f"Unexpected activation function found: {activation}")
 
-    def _create_torch_layer(self, layer: Layer, layer_name: str) -> nn.Module:
-        layer_to_add: nn.Module
+    def _create_torch_layer(self, layer: Layer, layer_name: str, require_flatten: bool) -> nn.Module:
         inputs_shapes = {input_id: self.layer_shapes[input_id]
                          for input_id in self.parsed_network.layers_connections[layer.layer_id]}
         expected_input_dimensions: Optional[Dimensions]
@@ -232,10 +246,8 @@ class ModelBuilder():
         else:
             # in this case all inputs will have the same dimensions, just take the first one...
             expected_input_dimensions = first_input
-
         self.layer_shapes[InputLayerId(layer.layer_id)] = \
             Dimensions.from_layer(layer, expected_input_dimensions)
-
         if layer.layer_type == LayerType.CONV:
             return self._build_convolutional_layer(layer, expected_input_dimensions)
         if layer.layer_type == LayerType.BATCH_NORM:
@@ -245,13 +257,15 @@ class ModelBuilder():
         if layer.layer_type == LayerType.POOL_MAX:
             return self._build_max_pooling_layer(layer, expected_input_dimensions)
         if layer.layer_type == LayerType.FC:
-            return self._build_dense_layer(layer, layer_name, expected_input_dimensions)
+            return self._build_dense_layer(layer, layer_name, expected_input_dimensions, require_flatten)
         if layer.layer_type == LayerType.DROPOUT:
             return self._build_dropout_layer(layer)
         if layer.layer_type == LayerType.IDENTITY:
             return nn.Identity()
         if layer.layer_type == LayerType.RELU_AGG:
             return nn.ReLU()
+        raise ValueError(
+            f"Unexpected layer type found: {layer.layer_type}")
 
     def _build_convolutional_layer(self, layer: Layer, input_dimensions: Dimensions) -> nn.Module:
         # pylint: disable=unused-variable
@@ -288,8 +302,8 @@ class ModelBuilder():
 
     def _build_batch_norm_layer(self, layer: Layer, input_dimensions: Dimensions) -> nn.Module:
         return nn.BatchNorm2d(**layer.layer_parameters,
-                                      num_features=input_dimensions.channels,
-                                      device=self.device.value)
+                              num_features=input_dimensions.channels,
+                              device=self.device.value)
 
     def _build_avg_pooling_layer(self, layer: Layer, input_dimensions: Dimensions) -> nn.Module:
         torch_layers_to_add: List[nn.Module] = []
@@ -318,14 +332,15 @@ class ModelBuilder():
         return nn.Sequential(*torch_layers_to_add)
 
     def _build_dropout_layer(self, layer: Layer) -> nn.Module:
+        # TODO: check if this is correct
         layer.layer_parameters['p'] = min(
             0.5, layer.layer_parameters.pop("rate"))
         return nn.Dropout(**layer.layer_parameters)
 
-    def _build_dense_layer(self, layer: Layer, layer_name: str, input_dimensions: Dimensions) -> nn.Sequential:
+    def _build_dense_layer(self, layer: Layer, layer_name: str, input_dimensions: Dimensions, require_flatten: bool) -> nn.Sequential:
         activation = ActivationType(layer.layer_parameters.pop("act"))
         torch_layers_to_add: List[nn.Module] = []
-        if layer_name.endswith(f"{LayerType.FC.value}{SEPARATOR_CHAR}1"):
+        if require_flatten or layer_name.endswith(f"{LayerType.FC.value}{SEPARATOR_CHAR}1"):
             torch_layers_to_add.append(nn.Flatten())
             torch_layers_to_add.append(nn.Linear(**layer.layer_parameters,
                                                  in_features=input_dimensions.flatten(),

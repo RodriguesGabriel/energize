@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from functools import reduce
 from itertools import takewhile, dropwhile
-from typing import cast, Any, Dict, List, Set, Tuple
+from typing import cast, Any, Dict, List, Set, Tuple, Optional
 
 from energize.misc.enums import Entity, LayerType, OptimiserType
 from energize.misc.utils import InputLayerId, LayerId
@@ -48,17 +48,17 @@ class Layer:
 class ParsedNetwork:
     layers: List[Layer]
     layers_connections: Dict[LayerId, List[InputLayerId]]
+    model_partition_points: Optional[int] = None
 
-    # It gets the layer id that corresponds to the final/output layer
-    def get_output_layer_id(self) -> LayerId:
+    # It gets the layer idx that corresponds to the final/output layer
+    def get_output_layer_idx(self) -> List[LayerId]:
         keyset: Set[int] = set(self.layers_connections.keys())
         values_set: Set[int] = set(
             list(reduce(lambda a, b: cast(list, a) + cast(list, b),
                         self.layers_connections.values()))
         )
         result: Set[int] = keyset.difference(values_set)
-        assert len(result) == 1
-        return LayerId(list(result)[0])
+        return list(map(LayerId, result))
 
 
 class Optimiser:
@@ -75,7 +75,7 @@ class Optimiser:
             return value.title() == "True"
         if key in ["lr", "lr_weights", "lr_biases", "alpha", "weight_decay", "momentum", "beta1", "beta2"]:
             return float(value)
-        if key in ["early_stop", "batch_size", "epochs"]:
+        if key in ["early_stop", "batch_size", "epochs", "partition_point"]:
             return int(value)
         raise ValueError(
             f"No conversion found for param: [{key}], with value [{value}]")
@@ -94,6 +94,7 @@ def parse_phenotype(phenotype: str) -> Tuple[ParsedNetwork, Optimiser]:
     layers: List[Layer] = []
     layers_connections: Dict[LayerId, List[InputLayerId]] = {}
     layer_id: int = 0
+    model_partition_point: Optional[int] = None
     while phenotype_as_list:
         entity: Entity = Entity(phenotype_as_list[0][0])
         name: str = phenotype_as_list[0][1]
@@ -117,6 +118,10 @@ def parse_phenotype(phenotype: str) -> Tuple[ParsedNetwork, Optimiser]:
         elif entity == Entity.OPTIMISER:
             optimiser = Optimiser(optimiser_type=OptimiserType(name),
                                   optimiser_parameters=entity_parameters)
+        elif entity == Entity.MODEL_PARTITION:
+            model_partition_point = int(entity_parameters["partition_point"])
+        else:
+            raise ValueError(f"Unknown entity: {entity}")
 
-    return ParsedNetwork(layers, layers_connections), \
+    return ParsedNetwork(layers, layers_connections, model_partition_point), \
         optimiser

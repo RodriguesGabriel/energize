@@ -23,10 +23,10 @@ __all__ = ["Fitness", "FitnessMetric", "AccuracyMetric",
 
 
 class Fitness:
-    def __init__(self, value: float, metric: type[FitnessMetric], power_data: dict | None = None) -> None:
+    def __init__(self, value: float, metric: type[FitnessMetric], power_data: Optional[dict] = None) -> None:
         self.value: float = value
         self.metric: type[FitnessMetric] = metric
-        self.power: dict | None = power_data
+        self.power: Optional[dict] = power_data
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Fitness):
@@ -180,7 +180,7 @@ class PowerMetric(FitnessMetric):
         super().__init__(batch_size, loss_function)
         self.return_in_joules: bool = return_in_joules
         self.power_config: PowerConfig = power_config
-        self.power_data: dict | None = None
+        self.power_data: Optional[dict] = None
 
     def compute_metric(self, model: nn.Module, data_loader: DataLoader, device: Device) -> dict:
         model.eval()
@@ -246,7 +246,7 @@ class PowerMetric(FitnessMetric):
 
 
 class CustomFitnessFunction(FitnessMetric):
-    def __init__(self, fitness_function: list[dict], power_config: PowerConfig, batch_size: int | None = None, loss_function: Any = None) -> None:
+    def __init__(self, fitness_function: list[dict], power_config: PowerConfig, batch_size: Optional[int] = None, loss_function: Any = None) -> None:
         super().__init__(batch_size, loss_function)
         self.fitness_function = fitness_function
         self.power_config = power_config

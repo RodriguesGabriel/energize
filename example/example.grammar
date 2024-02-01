@@ -17,3 +17,4 @@
 <rmsprop> ::= learning:rmsprop [lr,float,1,0.0001,0.1] [alpha,float,1,0.5,1] [weight_decay,float,1,0.000001,0.001]
 <lars> ::= learning:lars [lr_weights,float,1,0.05,0.35] [lr_biases,float,1,0.001,0.01] [momentum,float,1,0.7,0.9] [weight_decay,float,1,0.0000001,0.00001]
 <early_stop> ::= [early_stop,int,1,5,20]
+<model_partition> ::= model_partition:_ [partition_point,int,1,-1,x]

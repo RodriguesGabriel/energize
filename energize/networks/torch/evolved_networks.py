@@ -1,5 +1,7 @@
+from copy import deepcopy
 import logging
 from typing import Dict, List, Optional, Tuple, Union
+from numpy import add
 
 import torch
 from torch import nn, Tensor
@@ -79,13 +81,85 @@ class EvolvedNetwork(nn.Module):
         return custom_forward
 
     def forward(self, x: Tensor) -> Optional[Tensor] | Optional[tuple[Tensor]]:
-        input_layer_ids: List[InputLayerId]
+        input_layer_idx: List[InputLayerId]
         result: List[Tensor] = []
         for output_layer_id in self.output_layer_idx:
-            input_layer_ids = self.layers_connections[output_layer_id]
+            input_layer_idx = self.layers_connections[output_layer_id]
             result.append(self._process_forward_pass(
-                x, output_layer_id, input_layer_ids))
+                x, output_layer_id, input_layer_idx))
         return tuple(result) if len(result) > 1 else result[0]
+
+    def remove_additional_outputs(self, additional_output_idx: List[LayerId]) -> 'EvolvedNetwork':
+        model_partition: EvolvedNetwork = deepcopy(self)
+
+        original_num_layers = len(model_partition.evolved_layers)
+        layer_names_to_remove = []
+
+        for additional_output_id in additional_output_idx:
+            layer_name = model_partition.id_layername_map[additional_output_id]
+            layer_names_to_remove.append(layer_name)
+            model_partition.output_layer_idx.remove(additional_output_id)
+            del model_partition.layers_connections[additional_output_id]
+            del model_partition.id_layername_map[additional_output_id]
+            delattr(model_partition, layer_name)
+
+        model_partition.evolved_layers = [
+            layer for layer in model_partition.evolved_layers
+            if layer[0] not in layer_names_to_remove
+        ]
+
+        assert len(model_partition.evolved_layers) == original_num_layers - \
+            len(additional_output_idx)
+        assert len(model_partition.output_layer_idx) == 1
+
+        return model_partition
+
+    def get_connected_layers(self, layer_id: LayerId) -> set[LayerId]:
+        connected_layers = set()
+        for idx in self.layers_connections[layer_id]:
+            connected_layers.add(idx)
+            if idx != -1:
+                connected_layers.update(self.get_connected_layers(idx))
+        return connected_layers
+
+    def prune_unnecessary_layers(self, additional_output_id: LayerId) -> 'EvolvedNetwork':
+        model_partition: EvolvedNetwork = deepcopy(self)
+
+        layers_to_keep = model_partition.get_connected_layers(additional_output_id)
+        layers_to_keep.add(additional_output_id)
+
+        layers_to_prune = set(model_partition.layers_connections.keys()) - \
+            layers_to_keep
+
+        layer_names_to_remove = []
+
+        for idx in layers_to_prune:
+            layer_name = model_partition.id_layername_map[idx]
+            layer_names_to_remove.append(layer_name)
+            del model_partition.layers_connections[idx]
+            del model_partition.id_layername_map[idx]
+            delattr(model_partition, layer_name)
+
+        for connections in model_partition.layers_connections.values():
+            for idx in connections:
+                if idx in layers_to_prune:
+                    connections.remove(idx)
+
+        model_partition.evolved_layers = [
+            layer for layer in model_partition.evolved_layers
+            if layer[0] not in layer_names_to_remove
+        ]
+
+        model_partition.output_layer_idx = [additional_output_id]
+
+        print(f"Evolved layers: {model_partition.evolved_layers}")
+        print(f"Layers to keep: {layers_to_keep}")
+
+        # check if the number of layers ir right but don't consider the input layer (-1)
+        assert len(model_partition.evolved_layers) == len(layers_to_keep) - 1
+        assert len(model_partition.output_layer_idx) == 1
+
+        return model_partition
 
 
 class LegacyNetwork(EvolvedNetwork):
