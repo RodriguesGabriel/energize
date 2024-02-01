@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import astuple, dataclass, fields
+from dataclasses import astuple, dataclass, fields, asdict
 from typing import Any, Dict, Iterator, List, Optional
 
 from energize.misc.fitness_metrics import Fitness
@@ -10,7 +10,7 @@ from energize.misc.fitness_metrics import Fitness
 class EvaluationMetrics:
     is_valid_solution: bool
     fitness: Fitness
-    accuracy: Optional[float]
+    accuracy: Optional[tuple[float]]
     n_trainable_parameters: int
     n_layers: int
     training_time_spent: float
@@ -18,7 +18,7 @@ class EvaluationMetrics:
     n_epochs: int
     total_epochs_trained: int
     max_epochs_reached: bool
-    power: dict | None
+    power: Optional[dict]
 
     @classmethod
     def default(cls, fitness: Fitness) -> "EvaluationMetrics":
@@ -36,14 +36,29 @@ class EvaluationMetrics:
             power=None
         )
 
-    @classmethod
-    def list_fields(cls) -> List[str]:
-        return [field.name for field in fields(cls)]
+    def list_fields(self) -> List[str]:
+        class_fields = [field.name for field in fields(self)]
+        # if self.accuracy is not None and len(self.accuracy) > 1:
+        #     idx = class_fields.index("accuracy")
+        #     class_fields[idx] = "accuracy_0"
+        #     for i in range(1, len(self.accuracy)):
+        #         class_fields.insert(idx + i, f"accuracy_{i}")
+        return class_fields
 
     def __iter__(self) -> Iterator[Any]:
-        return iter(astuple(self))
+        data = list(astuple(self))
+        data[1] = data[1].value
+
+        return iter(data)
 
     def __str__(self) -> str:
+        accuracy = None
+        if self.accuracy is not None:
+            if len(self.accuracy) > 1:
+                accuracy = [round(a, 5) for a in self.accuracy]
+            else:
+                accuracy = round(self.accuracy[0], 5)
+
         return "EvaluationMetrics(" + \
             f"is_valid_solution: {self.is_valid_solution},  " + \
             f"n_trainable_parameters: {self.n_trainable_parameters},  " + \
@@ -51,7 +66,7 @@ class EvaluationMetrics:
             f"training_time_spent: {self.training_time_spent},  " + \
             f"n_epochs: {self.n_epochs},  " + \
             f"total_epochs_trained: {self.total_epochs_trained},  " + \
-            f"accuracy: {round(self.accuracy, 5) if self.accuracy is not None else self.accuracy},  " + \
+            f"accuracy: {accuracy},  " + \
             f"fitness: {self.fitness},  " + \
             f"losses: {self.losses},  " + \
             f"power: {self.power},  " + \

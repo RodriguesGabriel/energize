@@ -1,7 +1,7 @@
 import logging
 import random
 from copy import deepcopy
-from typing import TYPE_CHECKING, Dict, List, Tuple
+from typing import TYPE_CHECKING, Dict, List, Tuple, Optional
 
 import numpy as np
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def mutation_dsge(layer: 'Genotype', grammar: Grammar) -> None:
+def mutation_dsge(layer: 'Genotype', grammar: Grammar, dynamic_bounds: Optional[Dict[str, tuple]] = None) -> None:
     nt_keys: List[NonTerminal] = sorted(list(layer.expansions.keys()))
     random_nt: NonTerminal = random.choice(nt_keys)
     nt_derivation_idx: int = random.randint(
@@ -53,6 +53,8 @@ def mutation_dsge(layer: 'Genotype', grammar: Grammar) -> None:
             is_neutral_mutation: bool = True
             while is_neutral_mutation:
                 current_values = tuple(symbol_to_mutate.attribute.values)
+                symbol_to_mutate.attribute.update_bounds(
+                    dynamic_bounds, symbol_to_mutate.name)
                 symbol_to_mutate.attribute.generate()
                 new_values = tuple(symbol_to_mutate.attribute.values)
                 if current_values != new_values:
@@ -69,6 +71,7 @@ def mutation_dsge(layer: 'Genotype', grammar: Grammar) -> None:
             for symbol in new_derivation:
                 if isinstance(symbol, Terminal) and symbol.attribute is not None:
                     assert symbol.attribute.values is None
+                    symbol.attribute.update_bounds(dynamic_bounds, symbol.name)
                     symbol.attribute.generate()
             layer.expansions[random_nt][nt_derivation_idx] = new_derivation
         else:
@@ -161,10 +164,13 @@ def mutation(individual: Individual,
                 module.layer_remove_connection(grammar,
                                                individual_copy.id, m_idx, layer_idx)
 
+    dynamic_bounds = {
+        'partition_point': (-1, individual_copy.get_num_layers() - 1)
+    }
     # macro level mutation
     for macro in individual_copy.macro:
         if random.random() <= macro_layer_prob:
-            mutation_dsge(macro, grammar)
+            mutation_dsge(macro, grammar, dynamic_bounds)
             logger.info(
                 "Individual %d is going to have a macro mutation", individual_copy.id)
 
@@ -235,8 +241,6 @@ def select_fittest(population: List[Individual],
                             f" Current fitness {parent_10min.fitness}")
                 path: str = persistence.build_individual_path(
                     checkpoint_base_path, run, generation, parent_10min.id)
-                print(f"Reusing individual from path: {path}")
-                print("Macro genotype from parent 10 min: ", parent_10min.macro)
                 parent_10min.evaluate(grammar,
                                       cnn_eval,
                                       path,
@@ -252,22 +256,19 @@ def select_fittest(population: List[Individual],
                 assert parent_10min.fitness is not None
                 if parent_10min.fitness > elite.fitness and parent_10min.fitness > parent.fitness:
                     return deepcopy(parent_10min)
-                elif elite.fitness > parent_10min.fitness and elite.fitness > parent.fitness:
+                if elite.fitness > parent_10min.fitness and elite.fitness > parent.fitness:
                     return deepcopy(elite)
-                else:
-                    return deepcopy(parent)
-            else:
-                if elite.fitness > parent.fitness:
-                    return deepcopy(elite)
-                else:
-                    return deepcopy(parent)
-        elif retrain_10min:
+                return deepcopy(parent)
+
+            if elite.fitness > parent.fitness:
+                return deepcopy(elite)
+
+            return deepcopy(parent)
+        if retrain_10min:
             assert parent_10min.fitness is not None
             if parent_10min.fitness > parent.fitness:
                 return deepcopy(parent_10min)
-            else:
-                return deepcopy(parent)
-        else:
             return deepcopy(parent)
+        return deepcopy(parent)
 
     return deepcopy(parent)

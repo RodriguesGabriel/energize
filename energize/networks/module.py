@@ -1,20 +1,21 @@
-import random
 import logging
-from copy import deepcopy
-from typing import Dict, List, Tuple, TYPE_CHECKING
-from sys import float_info
+import random
 import time
+from copy import deepcopy
+from sys import float_info
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
-from torch import nn, Size
+from torch import Size, nn
 
-from energize.misc.enums import Device
-from energize.misc.utils import InvalidNetwork
-from energize.misc.power import PowerConfig
-from energize.networks.module_config import ModuleConfig
-from energize.networks.torch.evaluators import BaseEvaluator, LegacyEvaluator, parse_phenotype
 from energize.misc.constants import DATASETS_INFO
+from energize.misc.enums import Device
+from energize.misc.power import PowerConfig
+from energize.misc.utils import InvalidNetwork
+from energize.networks.module_config import ModuleConfig
+from energize.networks.torch.evaluators import (BaseEvaluator, LegacyEvaluator,
+                                                parse_phenotype)
 from energize.networks.torch.model_builder import ModelBuilder
 
 if TYPE_CHECKING:
@@ -27,13 +28,12 @@ class Module:
     history: List['Module'] = []
     power_config: PowerConfig = None
 
-
     def __init__(self, module_name: str, module_configuration: ModuleConfig) -> None:
         self.module_name: str = module_name
         self.module_configuration: ModuleConfig = module_configuration
         self.layers: List[Genotype] = []
         self.connections: Dict[int, List[int]] = {}
-        self.power: float | None = None
+        self.power: Optional[float] = None
 
     def initialise(self, grammar: 'Grammar', reuse: float) -> None:
         num_expansions = random.choice(
@@ -46,7 +46,6 @@ class Module:
                 self.layers.append(self.layers[r_idx])
             else:
                 self.layers.append(grammar.initialise(self.module_name))
-        # print(self.layers)
         # Initialise connections: feed-forward and allowing skip-connections
         self.connections = {}
 
@@ -110,15 +109,20 @@ class Module:
 
             torch_model.eval()
             with torch.no_grad():
-                random_input = torch.rand(10**3, *input_size).to(device.value, non_blocking=True)
+                random_input = torch.rand(
+                    10**4, *input_size).to(device.value, non_blocking=True)
                 self.power_config.meter.start(tag="module")
-                for _ in range(10**3):
+                for _ in range(10**2):
                     torch_model(random_input)
                 self.power_config.meter.stop()
 
             trace = self.power_config.meter.get_trace()
-            self.power = sum(trace[0].energy.values()) / 1000 / trace[0].duration
-            self.history.append(deepcopy(self))
+            self.power = sum(trace[0].energy.values()) / \
+                1000 / trace[0].duration
+            if self.power == 0:
+                logger.warning("Module power is zero. Not saving it.")
+            else:
+                self.history.append(deepcopy(self))
         except InvalidNetwork as e:
             logger.warning("Invalid network: %s", e)
         except RuntimeError as e:
@@ -204,9 +208,10 @@ class Module:
                                               layer_idx-1))
         connection_possibilities = list(
             set(connection_possibilities) - set(self.connections[layer_idx]))
-        if len(connection_possibilities) > 0:
-            new_input: int = random.choice(connection_possibilities)
-            self.connections[layer_idx].append(new_input)
+        if len(connection_possibilities) == 0:
+            return
+        new_input: int = random.choice(connection_possibilities)
+        self.connections[layer_idx].append(new_input)
         logger.info("Individual %d is going to have a new connection Module %d: %s; layer %d",
                     individual_idx, module_idx, self.module_name, layer_idx)
         self.measure_power(grammar)
@@ -214,9 +219,10 @@ class Module:
     def layer_remove_connection(self, grammar: 'Grammar', individual_idx: int, module_idx: int, layer_idx: int):
         connection_possibilities = list(
             set(self.connections[layer_idx]) - set([layer_idx-1]))
-        if len(connection_possibilities) > 0:
-            r_connection = random.choice(connection_possibilities)
-            self.connections[layer_idx].remove(r_connection)
+        if len(connection_possibilities) == 0:
+            return
+        r_connection = random.choice(connection_possibilities)
+        self.connections[layer_idx].remove(r_connection)
         logger.info("Individual %d is going to have a connection removed from Module %d: %s; layer %d",
                     individual_idx, module_idx, self.module_name, layer_idx)
         self.measure_power(grammar)

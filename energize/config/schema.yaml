@@ -17,26 +17,35 @@ $defs:
         $ref: "#/$defs/probability"
     additionalProperties: False
     required:
-    - evo_train
-    - evo_test
+      - evo_train
+      - evo_test
   augmentation:
     type: object
     properties:
       train:
         oneOf:
           - type: object
-          - type: 'null'
+          - type: "null"
       test:
         oneOf:
           - type: object
-          - type: 'null'
+          - type: "null"
     required:
-    - test
+      - test
+  metrics:
+    type: string
+    oneOf:
+      - pattern: "(accuracy_|power_|energy_)\\d+"
+      - enum: ["accuracy", "loss", "power", "energy"]
 
 type: object
 properties:
   checkpoints_path:
     type: string
+
+  statistics_format:
+    enum: ["csv", "json"]
+
   energize:
     type: object
     properties:
@@ -54,15 +63,27 @@ properties:
             type: boolean
         additionalProperties: False
         required:
-        - train
-        - test
-        - num_measurements_test
-        - modules
+          - train
+          - test
+          - num_measurements_test
+          - modules
+      model_partition:
+        type: boolean
+      model_partition_n:
+        type: integer
       ensure_gpu_exclusivity:
         type: boolean
     required:
-    - measure_power
-    - ensure_gpu_exclusivity
+      - measure_power
+      - model_partition
+      - ensure_gpu_exclusivity
+    if:
+      properties:
+        model_partition:
+          const: true
+    then:
+      required:
+        - model_partition_n
 
   evolutionary:
     type: object
@@ -98,25 +119,25 @@ properties:
             $ref: "#/$defs/probability"
         additionalProperties: False
         required:
-        - add_connection
-        - remove_connection
-        - add_layer
-        - reuse_layer
-        - remove_layer
-        - reuse_module
-        - remove_module
-        - dsge_layer
-        - macro_layer
-        - train_longer
+          - add_connection
+          - remove_connection
+          - add_layer
+          - reuse_layer
+          - remove_layer
+          - reuse_module
+          - remove_module
+          - dsge_layer
+          - macro_layer
+          - train_longer
       fitness_metric:
-        enum: ["accuracy", "loss", "power", "energy"]
+        $ref: "#/$defs/metrics"
       fitness_function:
         type: array
         items:
           type: object
           properties:
             metric:
-              enum: ["accuracy", "loss", "power", "energy"]
+              $ref: "#/$defs/metrics"
             objective:
               enum: ["maximize", "minimize"]
             weight:
@@ -127,29 +148,30 @@ properties:
                 type: object
                 properties:
                   metric:
-                    enum: ["accuracy", "loss", "power", "energy"]
+                    $ref: "#/$defs/metrics"
                   type:
                     enum: ["less_than", "greater_than"]
                   value:
                     type: number
                 required:
-                - type
-                - value
+                  - type
+                  - value
           required:
-          - metric
-          - objective
-          - weight
+            - metric
+            - objective
+            - weight
     additionalProperties: False
     required:
-    - generations
-    - lambda
-    - max_epochs
-    - mutation
+      - generations
+      - lambda
+      - max_epochs
+      - mutation
     oneOf:
       - required:
-        - fitness_metric
+          - fitness_metric
       - required:
-        - fitness_function
+          - fitness_function
+
   network:
     type: object
     properties:
@@ -180,15 +202,15 @@ properties:
                   type: integer
               additionalProperties: False
               required:
-              - network_structure_init
-              - network_structure
-              - levels_back
+                - network_structure_init
+                - network_structure
+                - levels_back
         additionalProperties: False
         required:
-        - reuse_layer
-        - macro_structure
-        - output
-        - modules
+          - reuse_layer
+          - macro_structure
+          - output
+          - modules
       learning:
         type: object
         properties:
@@ -208,21 +230,22 @@ properties:
           properties:
             data_splits:
               required:
-              - evo_validation
+                - evo_validation
             augmentation:
               required:
-              - train
+                - train
         required:
-        - learning_type
-        - default_train_time
-        - data_splits
-        - augmentation
+          - learning_type
+          - default_train_time
+          - data_splits
+          - augmentation
     additionalProperties: False
     required:
-    - architecture
-    - learning
+      - architecture
+      - learning
 additionalProperties: False
 required:
-- checkpoints_path
-- evolutionary
-- network
+  - checkpoints_path
+  - statistics_format
+  - evolutionary
+  - network

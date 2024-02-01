@@ -26,6 +26,7 @@ class Checkpoint:
     modules_history: List[Module]
     population: Optional[List[Individual]] = field(default=None)
     parent: Optional[Individual] = field(default=None)
+    statistics_format: str = field(default=None)
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Checkpoint):

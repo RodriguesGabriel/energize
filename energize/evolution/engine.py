@@ -138,5 +138,6 @@ def evolve(run: int,
         population=population,
         parent=parent,
         best_gen_ind_test_accuracy=best_test_acc,
-        modules_history=Module.history
+        modules_history=Module.history,
+        statistics_format=checkpoint.statistics_format
     )

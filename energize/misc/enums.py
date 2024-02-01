@@ -1,5 +1,6 @@
-from enum import unique, Enum
-from typing import Any, List
+import re
+from enum import Enum, unique
+from typing import Any, List, Optional
 
 import torch
 
@@ -22,6 +23,7 @@ class ExtendedEnum(Enum):
 class Entity(ExtendedEnum):
     LAYER = "layer"
     OPTIMISER = "learning"
+    MODEL_PARTITION = "model_partition"
 
 
 @unique
@@ -78,5 +80,19 @@ class TransformOperation(ExtendedEnum):
 class FitnessMetricName(ExtendedEnum):
     LOSS = "loss"
     ACCURACY = "accuracy"
+    ACCURACY_N = r"accuracy_(\d+)"
     POWER = "power"
+    POWER_N = r"power_(\d+)"
     ENERGY = "energy"
+    ENERGY_N = r"energy_(\d+)"
+
+    @staticmethod
+    def new(value: str) -> tuple['FitnessMetricName', Optional[int]]:
+        match: Optional[re.Match] = None
+        if (match := re.match(FitnessMetricName.ACCURACY_N.value, value)):
+            return FitnessMetricName.ACCURACY_N, int(match[1])
+        if (match := re.match(FitnessMetricName.POWER_N.value, value)):
+            return FitnessMetricName.POWER_N, int(match[1])
+        if (match := re.match(FitnessMetricName.ENERGY_N.value, value)):
+            return FitnessMetricName.ENERGY_N, int(match[1])
+        return FitnessMetricName(value), None

@@ -18,6 +18,7 @@ class Config():
     def __init__(self, path: str) -> None:
         self.config: Any = self._load(path)
         self._validate_config()
+        self._fix_inconsistent_config()
         self.config['network']['architecture']['modules'] = self._convert_modules_configs_to_dict()
         os.makedirs(self.config['checkpoints_path'], exist_ok=True)
         self._backup_used_config(path, self.config['checkpoints_path'])
@@ -54,7 +55,6 @@ class Config():
         schema_path: str = os.path.join("energize", "config", "schema.yaml")
         schema: Any = self._load(schema_path)
         validate(self.config, schema)
-        logger.critical(f"Energize params: {self.config['energize']['measure_power']['train']}")
         logger.info(
             f"Type of training: {self.config['network']['learning']['learning_type']}")
         if self.config['network']['learning']['learning_type'] == "supervised":
@@ -74,10 +74,25 @@ class Config():
         logger.info(
             f"Augmentation used in test: {self.config['network']['learning']['augmentation']['test']}")
 
+        if 'model_partition' in self.config['network']['architecture']['macro_structure'] \
+                and 'energize' in self.config \
+                and not self.config['energize']['model_partition']:
+            raise ValueError(
+                "'model_partition' was enabled in macro_structure but not enabled in the energize section ('model_partition' was set to False).")
+
     def _validate_augmentation_params(self, params: Dict[str, Any]) -> None:
         for key in params.keys():
             assert key in TransformOperation.enum_values(), \
                 f"{key} is not recognised as one of the supported transforms"
+
+    def _fix_inconsistent_config(self) -> None:
+        if 'energize' in self.config:
+            if self.config['energize']['model_partition'] \
+                    and 'model_partition' not in self.config['network']['architecture']['macro_structure']:
+                self.config['network']['architecture']['macro_structure'].append(
+                    'model_partition')
+                logger.warning(
+                    "'model_partition' was not found in the macro_structure but it was active in the energize section. macro_structure was updated accordingly.")
 
     def __getitem__(self, key: str) -> Any:
         return self.config[key]

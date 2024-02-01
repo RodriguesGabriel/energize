@@ -2,18 +2,19 @@ from __future__ import annotations
 
 import csv
 import glob
+import json
 import os
 import shutil
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import dill
 
 from energize.evolution import Individual
-from energize.misc.constants import MODEL_FILENAME
+from energize.misc.constants import (MODEL_FILENAME, OVERALL_BEST_FOLDER,
+                                     STATS_FOLDER_NAME)
 from energize.misc.evaluation_metrics import EvaluationMetrics
-from energize.misc.constants import OVERALL_BEST_FOLDER, STATS_FOLDER_NAME
-from energize.networks.module import Module
 from energize.misc.power import PowerConfig
+from energize.networks.module import Module
 
 if TYPE_CHECKING:
     from energize.config import Config
@@ -53,8 +54,7 @@ class RestoreCheckpoint:
                 checkpoint.evaluator.power_config = PowerConfig(
                     config['energize'])
             return checkpoint
-        else:
-            return None
+        return None
 
 
 class SaveCheckpoint:
@@ -80,7 +80,13 @@ class SaveCheckpoint:
         with open(os.path.join(save_path, f"run_{checkpoint.run}", "checkpoint.pkl"), "wb") as handle_checkpoint:
             dill.dump(checkpoint, handle_checkpoint)
         self._delete_unnecessary_files(checkpoint, save_path, max_generations)
-        self._save_statistics(save_path, checkpoint)
+        if checkpoint.statistics_format == "csv":
+            self._save_statistics_csv(save_path, checkpoint)
+        elif checkpoint.statistics_format == "json":
+            self._save_statistics_json(save_path, checkpoint)
+        else:
+            raise ValueError(
+                f"Unknown statistics format: {checkpoint.statistics_format}")
 
     # pylint: disable=unused-argument
     def _delete_unnecessary_files(self, checkpoint: Checkpoint, save_path: str, max_generations: int) -> None:
@@ -103,36 +109,69 @@ class SaveCheckpoint:
         #    for folder in folders_to_delete:
         #        shutil.rmtree(folder)
 
-    def _save_statistics(self, save_path: str, checkpoint: Checkpoint) -> None:
+    def _save_statistics_csv(self, save_path: str, checkpoint: Checkpoint) -> None:
         assert checkpoint.population is not None
-        with open(os.path.join(save_path,
-                               f"run_{checkpoint.run}",
-                               STATS_FOLDER_NAME,
+
+        stats_path = os.path.join(save_path,
+                                  f"run_{checkpoint.run}",
+                                  STATS_FOLDER_NAME)
+
+        with open(os.path.join(stats_path,
                                f"generation_{checkpoint.last_processed_generation}.csv"), 'w') as csvfile:
             csvwriter = csv.writer(
                 csvfile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
             csvwriter.writerow(["id", "phenotype", "num_epochs", "total_training_time_allocated"] +
-                               EvaluationMetrics.list_fields())
+                               checkpoint.population[0].metrics.list_fields())
             for ind in checkpoint.population:
                 csvwriter.writerow([ind.id,
                                     ind.phenotype,
                                     ind.num_epochs,
                                     ind.total_allocated_train_time,
                                     *ind.metrics])  # type: ignore
-        file_exists: bool = os.path.isfile(os.path.join(save_path,
-                                                        f"run_{checkpoint.run}",
-                                                        STATS_FOLDER_NAME,
-                                                        "test_accuracies.csv"))
-        with open(os.path.join(save_path,
-                               f"run_{checkpoint.run}",
-                               STATS_FOLDER_NAME,
-                               "test_accuracies.csv"), 'a') as csvfile:
+
+        test_accuracies_path = os.path.join(stats_path, "test_accuracies.csv")
+        file_exists: bool = os.path.isfile(test_accuracies_path)
+        with open(test_accuracies_path, 'a') as csvfile:
             csvwriter = csv.writer(
                 csvfile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
             if file_exists is False:
                 csvwriter.writerow(["generation", "test_accuracy"])
             csvwriter.writerow(
                 [checkpoint.last_processed_generation, checkpoint.best_gen_ind_test_accuracy])
+
+    def _save_statistics_json(self, save_path: str, checkpoint: Checkpoint) -> None:
+        assert checkpoint.population is not None
+
+        json_obj = [{
+            "id": ind.id,
+            "phenotype": ind.phenotype,
+            "num_epochs": ind.num_epochs,
+            "total_training_time_allocated": ind.total_allocated_train_time,
+            **dict(zip(ind.metrics.list_fields(), ind.metrics))
+        } for ind in checkpoint.population]
+
+        stats_path = os.path.join(save_path,
+                                  f"run_{checkpoint.run}",
+                                  STATS_FOLDER_NAME)
+
+        with open(os.path.join(stats_path,
+                               f"generation_{checkpoint.last_processed_generation}.json"), 'w') as file:
+            json.dump(json_obj, file, indent=4)
+
+        test_accuracies_path = os.path.join(stats_path,
+                                            "test_accuracies.json")
+        file_exists: bool = os.path.isfile(test_accuracies_path)
+
+        if file_exists:
+            with open(test_accuracies_path) as json_file:
+                test_accuracies = json.load(json_file)
+        else:
+            test_accuracies = {}
+
+        test_accuracies[checkpoint.last_processed_generation] = checkpoint.best_gen_ind_test_accuracy
+
+        with open(test_accuracies_path, 'w') as file:
+            json.dump(test_accuracies, file, indent=4)
 
 
 def save_overall_best_individual(best_individual_path: str, parent: Individual) -> None:

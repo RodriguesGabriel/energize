@@ -140,11 +140,17 @@ class Individual:
         # Initialise output
         self.output = grammar.initialise(self.output_rule)
 
+        dynamic_bounds = {
+            'partition_point': (-1, self.get_num_layers() - 1)
+        }
         # Initialise the macro structure: learning, data augmentation, etc.
         for rule in self.macro_rules:
-            self.macro.append(grammar.initialise(rule))
+            self.macro.append(grammar.initialise(rule, dynamic_bounds))
 
         return self
+
+    def get_num_layers(self) -> int:
+        return sum(len(m.layers) for m in self.modules)
 
     def _decode(self, grammar: Grammar) -> str:
         """
@@ -234,8 +240,6 @@ class Individual:
         self.num_epochs += self.metrics.n_epochs
         self.current_time += allocated_train_time
         self.total_training_time_spent += self.metrics.training_time_spent
-        logger.info(
-            f"Evaluation results for individual {self.id}: {self.metrics}\n")
 
         assert self.fitness is not None
         return self.fitness

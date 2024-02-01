@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, List
 import statistics as stats
 import numpy as np
 import logging
@@ -42,9 +42,12 @@ class PowerConfig:
         finally:
             pynvml.nvmlShutdown()
 
+    def __getitem__(self, key):
+        return self.config[key]
+
 
 def measure_power(power_config: PowerConfig, func, func_args):
-    n = power_config.config["measure_power"]["num_measurements_test"]
+    n = power_config["measure_power"]["num_measurements_test"]
     # average power usage of n runs of test step
     measures = [0] * n
     durations = [0] * n
@@ -77,6 +80,7 @@ def measure_power(power_config: PowerConfig, func, func_args):
             "data": np.divide(measures, durations).tolist()
         }
     }
+
 
 if __name__ == "__main__":
     import time
