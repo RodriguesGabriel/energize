@@ -28,7 +28,7 @@
             "macro_layer": 0.3,
             "train_longer": 0.2
         },
-        "fitness_metric": "accuracy",
+        "track_mutations": true,
         "fitness_function": [
             {
                 "metric": "accuracy_1",
@@ -66,24 +66,22 @@
                 {
                     "name": "features",
                     "network_structure_init": [
-                        2,
-                        3,
-                        4
+                        1,2,3,4,5
                     ],
                     "network_structure": [
-                        1,
-                        30
+                        0,
+                        50
                     ],
                     "levels_back": 1
                 },
                 {
                     "name": "classification",
                     "network_structure_init": [
-                        1
+                        1,2,3,4,5
                     ],
                     "network_structure": [
-                        1,
-                        10
+                        0,
+                        25
                     ],
                     "levels_back": 1
                 }
@@ -96,7 +94,7 @@
                 "evo_test": 0.1
             },
             "learning_type": "supervised",
-            "default_train_time": 1,
+            "default_train_time": 300,
             "augmentation": {
                 "train": {
                     "resize": {

@@ -200,6 +200,9 @@
                         "train_longer"
                     ]
                 },
+                "track_mutations": {
+                    "type": "boolean"
+                },
                 "fitness_metric": {
                     "$ref": "#/$defs/metrics"
                 },
@@ -258,7 +261,8 @@
                 "generations",
                 "lambda",
                 "max_epochs",
-                "mutation"
+                "mutation",
+                "track_mutations"
             ],
             "oneOf": [
                 {

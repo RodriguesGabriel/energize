@@ -9,6 +9,7 @@ from energize.evolution import Individual
 from energize.evolution.grammar import (Derivation, Grammar, NonTerminal,
                                         Terminal)
 from energize.misc import persistence
+from energize.misc.enums import MutationType
 
 if TYPE_CHECKING:
     from energize.evolution.grammar import Genotype, Symbol
@@ -81,6 +82,7 @@ def mutation_dsge(layer: 'Genotype', grammar: Grammar, dynamic_bounds: Optional[
 
 def mutation(individual: Individual,
              grammar: Grammar,
+             generation: int,
              mutation_config: Dict[str, float],
              default_train_time: int) -> Individual:
     """
@@ -122,6 +124,10 @@ def mutation(individual: Individual,
         individual_copy.total_allocated_train_time += default_train_time
         logger.info("Individual %d total train time is going to be extended to %f",
                     individual_copy.id, individual_copy.total_allocated_train_time)
+        individual_copy.track_mutation(MutationType.TRAIN_LONGER, generation, {
+                                       "from": individual_copy.total_allocated_train_time - default_train_time,
+                                       "to": individual_copy.total_allocated_train_time
+                                       })
         return individual_copy
 
     # in case the individual is mutated in any of the structural parameters
@@ -133,47 +139,53 @@ def mutation(individual: Individual,
 
     # reuse module
     if random.random() <= reuse_module:
-        individual_copy.reuse_module()
+        individual_copy.reuse_module(grammar, generation)
 
     # remove module
     if random.random() <= remove_module:
-        individual_copy.remove_module()
+        individual_copy.remove_module(grammar, generation)
 
     for m_idx, module in enumerate(individual_copy.modules):
         # add-layer (duplicate or new)
         for _ in range(random.randint(1, 2)):
             if random.random() <= add_layer_prob:
-                module.add_layer(grammar, individual_copy.id, m_idx,
-                                 reuse_layer_prob)
+                module.add_layer(grammar, individual_copy, m_idx,
+                                 reuse_layer_prob, generation)
         # remove-layer
         for _ in range(random.randint(1, 2)):
             if random.random() <= remove_layer_prob:
-                module.remove_layer(grammar, individual_copy.id, m_idx)
+                module.remove_layer(
+                    grammar, individual_copy, m_idx, generation)
 
         for layer_idx in range(len(module.layers)):
             # dsge mutation
             if random.random() <= dsge_layer_prob:
-                module.layer_dsge(grammar, individual_copy.id,
-                                  m_idx, layer_idx)
+                module.layer_dsge(grammar, individual_copy,
+                                  m_idx, layer_idx, generation)
             # add connection
             if layer_idx != 0 and random.random() <= add_connection_prob:
                 module.layer_add_connection(grammar,
-                                            individual_copy.id, m_idx, layer_idx)
+                                            individual_copy, m_idx, layer_idx, generation)
             # remove connection
             if layer_idx != 0 and random.random() <= remove_connection_prob:
                 module.layer_remove_connection(grammar,
-                                               individual_copy.id, m_idx, layer_idx)
+                                               individual_copy, m_idx, layer_idx, generation)
 
     dynamic_bounds = {
         'partition_point': (0, individual_copy.get_num_layers() - 1)
     }
     # macro level mutation
-    for macro in individual_copy.macro:
+    for rule_idx, macro_rule in enumerate(individual_copy.macro_rules):
         if random.random() <= macro_layer_prob:
-            mutation_dsge(macro, grammar, dynamic_bounds)
+            old_macro_phenotype = grammar.decode(
+                macro_rule, individual_copy.macro[rule_idx])
+            mutation_dsge(individual_copy.macro[rule_idx], grammar, dynamic_bounds)
+            individual_copy.track_mutation(MutationType.DSGE_MACRO, generation, {
+                "from": old_macro_phenotype,
+                "to": grammar.decode(macro_rule, individual_copy.macro[rule_idx])
+            })
             logger.info(
                 "Individual %d is going to have a macro mutation", individual_copy.id)
-
     return individual_copy
 
 
