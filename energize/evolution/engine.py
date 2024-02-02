@@ -124,7 +124,7 @@ def evolve(run: int,
     logger.info("Generation best test accuracy: %f", best_test_acc)
 
     logger.info("Best fitness of generation %d: %f",
-                generation, max(population_fits))
+                generation, max(population_fits).value)
     logger.info("Best overall fitness: %f\n\n\n", checkpoint.best_fitness)
 
     return Checkpoint(
