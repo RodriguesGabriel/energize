@@ -42,8 +42,8 @@ if [ $# -eq 0 ]; then
     echo "./batch.sh <CONFIG> <GRAMMAR> <DATASET> <NUM RUNS>"
 else
     RUNS=$(($4 - 1))
-    CONDA_PATH=$(whereis conda | awk '{print $2}')
-    source $CONDA_PATH/bin/activate energize >> /dev/null 2>&1
+    CONDA_PATH=$(dirname $(whereis -b conda | awk '{print $2}'))
+    source $CONDA_PATH/activate energize >> /dev/null 2>&1
     if [ $? -ne 0 ]; then
         echo "Error occurred on conda activate"
         exit 1
