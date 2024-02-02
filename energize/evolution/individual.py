@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import numpy as np
 
+from energize.misc.enums import Mutation, MutationType
 from energize.misc.evaluation_metrics import EvaluationMetrics
 from energize.misc.fitness_metrics import Fitness
 from energize.networks import Module
@@ -15,6 +16,7 @@ if TYPE_CHECKING:
     from energize.evolution.grammar import Genotype, Grammar
     from energize.networks.module import ModuleConfig
     from energize.networks.torch.evaluators import BaseEvaluator
+
 
 __all__ = ['Individual']
 
@@ -88,7 +90,7 @@ class Individual:
                 Performs the evaluation of a candidate solution
     """
 
-    def __init__(self, network_architecture_config: Dict[str, Any], ind_id: int, seed: int) -> None:
+    def __init__(self, network_architecture_config: Dict[str, Any], ind_id: int, track_mutations: bool, seed: int) -> None:
 
         self.seed: int = seed
         self.modules_configurations: Dict[str,
@@ -96,6 +98,9 @@ class Individual:
         self.output_rule: str = network_architecture_config['output']
         self.macro_rules: List[str] = network_architecture_config['macro_structure']
         self.modules: List[Module] = []
+        self.modules_phenotypes = []
+        self.mutation_tracker: Optional[List[Mutation]] = [
+        ] if track_mutations else None
         self.output: Optional[Genotype] = None
         self.macro: List[Genotype] = []
         self.phenotype: Optional[str] = None
@@ -190,24 +195,37 @@ class Individual:
         self.phenotype = phenotype.rstrip().lstrip()
         return self.phenotype
 
-    def reuse_module(self):
+    def reuse_module(self, grammar: Grammar, generation: int):
         powers = np.array([module.power for module in Module.history])
         probs = 1 / powers
         probs /= probs.sum()
         chosen_module = np.random.choice(Module.history, p=probs)
         insert_idx: int = random.randint(0, len(self.modules))
+        self.modules.insert(insert_idx, deepcopy(chosen_module))
         logger.info("Individual %d is going to have a module [%s] reused and inserted into position %d",
                     self.id, chosen_module.module_name, insert_idx)
-        self.modules.insert(insert_idx, deepcopy(chosen_module))
+        self.track_mutation(MutationType.REUSE_MODULE, generation, {
+            "module": chosen_module.decode(grammar, 0)[1],
+            "insert_idx": insert_idx
+        })
 
-    def remove_module(self) -> None:
+    def remove_module(self, grammar: Grammar, generation: int) -> None:
         if len(self.modules) == 1:
             return
 
         remove_idx: int = random.randint(0, len(self.modules) - 1)
         logger.info("Individual %d is going to have a module [%s] removed from position %d",
                     self.id,  self.modules[remove_idx].module_name, remove_idx)
+        self.track_mutation(MutationType.REMOVE_MODULE, generation, {
+            "module": self.modules[remove_idx].decode(grammar, 0)[1],
+            "remove_idx": remove_idx
+        })
         self.modules.pop(remove_idx)
+
+    def track_mutation(self, mutation_type: MutationType, gen: int, data: dict[str, Any]) -> None:
+        if self.mutation_tracker is None:
+            return
+        self.mutation_tracker.append(Mutation(mutation_type, gen, data))
 
     def evaluate(self,
                  grammar: Grammar,
@@ -217,6 +235,10 @@ class Individual:
 
         phenotype: str
         phenotype = self._decode(grammar)
+
+        # store modules phenotypes
+        self.modules_phenotypes = [module.decode(
+            grammar, 0)[1].lstrip() for module in self.modules]
 
         reuse_parent_weights: bool
         reuse_parent_weights = True

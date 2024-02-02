@@ -87,6 +87,8 @@ class Optimiser:
 
 
 def parse_phenotype(phenotype: str) -> Tuple[ParsedNetwork, Optimiser]:
+    # ignore modules separator
+    phenotype = phenotype.replace("| ", "")
     phenotype_as_list: List[List[str]] = \
         list(map(lambda x: x.split(":"), phenotype.split(" ")))
 

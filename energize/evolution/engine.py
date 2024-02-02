@@ -22,7 +22,7 @@ def evolve(run: int,
            checkpoint: Checkpoint,
            config: Config) -> Checkpoint:
 
-    logger.info(f"Performing generation: {generation}")
+    logger.info("Performing generation: %d", generation)
     population: List[Individual]
     population_fits: List[Fitness]
     if generation == 0:
@@ -30,7 +30,8 @@ def evolve(run: int,
 
         # create initial population
         population = [
-            Individual(config['network']['architecture'], _id_, seed=run)
+            Individual(config['network']['architecture'], _id_,
+                       config['evolutionary']['track_mutations'], run)
             .initialise(grammar, config['network']['architecture']['reuse_layer'])
             for _id_ in range(config['evolutionary']['lambda'])
         ]
@@ -64,6 +65,7 @@ def evolve(run: int,
         offspring: List[Individual] = \
             [operators.mutation(ind,
                                 grammar,
+                                generation,
                                 config['evolutionary']['mutation'],
                                 config['network']['learning']['default_train_time'])
              for ind in offspring_before_mutation]
@@ -119,11 +121,11 @@ def evolve(run: int,
     best_test_acc: float = checkpoint.evaluator.testing_performance(
         best_individual_path)
 
-    logger.info(f"Generation best test accuracy: {best_test_acc}")
+    logger.info("Generation best test accuracy: %f", best_test_acc)
 
-    logger.info(
-        f"Best fitness of generation {generation}: {max(population_fits)}")
-    logger.info(f"Best overall fitness: {checkpoint.best_fitness}\n\n\n")
+    logger.info("Best fitness of generation %d: %f",
+                generation, max(population_fits))
+    logger.info("Best overall fitness: %f\n\n\n", checkpoint.best_fitness)
 
     return Checkpoint(
         run=run,

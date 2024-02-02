@@ -10,7 +10,7 @@ import torch
 from torch import Size, nn
 
 from energize.misc.constants import DATASETS_INFO
-from energize.misc.enums import Device
+from energize.misc.enums import Device, MutationType
 from energize.misc.power import PowerConfig
 from energize.misc.utils import InvalidNetwork
 from energize.networks.module_config import ModuleConfig
@@ -20,6 +20,8 @@ from energize.networks.torch.model_builder import ModelBuilder
 
 if TYPE_CHECKING:
     from energize.evolution.grammar import Genotype, Grammar
+    from energize.evolution.individual import Individual
+
 
 logger = logging.getLogger(__name__)
 
@@ -128,12 +130,14 @@ class Module:
         except RuntimeError as e:
             logger.warning("Runtime error: %s", e)
 
-    def add_layer(self, grammar: 'Grammar', individual_idx: int,  module_idx: int, reuse_layer_prob: float):
+    def add_layer(self, grammar: 'Grammar', individual: 'Individual',  module_idx: int, reuse_layer_prob: float, generation: int):
         if len(self.layers) >= self.module_configuration.max_expansions:
             return
 
+        is_reused = False
         if random.random() <= reuse_layer_prob and len(self.layers) > 0:
             new_layer = random.choice(self.layers)
+            is_reused = True
         else:
             new_layer = grammar.initialise(self.module_name)
 
@@ -167,13 +171,24 @@ class Module:
                     connection_possibilities, sample_size)
 
         logger.info("Individual %d is going to have an extra layer at Module %d: %s; position %d",
-                    individual_idx, module_idx, self.module_name, insert_pos)
+                    individual.id, module_idx, self.module_name, insert_pos)
+        individual.track_mutation(MutationType.ADD_LAYER, generation, {
+            "layer": grammar.decode(self.module_name, new_layer),
+            "module_idx": module_idx,
+            "insert_pos": insert_pos,
+            "reused": is_reused
+        })
         self.measure_power(grammar)
 
-    def remove_layer(self, grammar: 'Grammar', individual_idx: int, module_idx: int):
+    def remove_layer(self, grammar: 'Grammar', individual: 'Individual', module_idx: int, generation: int):
         if len(self.layers) <= self.module_configuration.min_expansions:
             return
         remove_idx = random.randint(0, len(self.layers)-1)
+        individual.track_mutation(MutationType.REMOVE_LAYER, generation, {
+            "layer": grammar.decode(self.module_name, self.layers[remove_idx]),
+            "module_idx": module_idx,
+            "remove_idx": remove_idx
+        })
         del self.layers[remove_idx]
 
         # fix connections
@@ -193,17 +208,23 @@ class Module:
             if remove_idx == 0:
                 self.connections[0] = [-1]
         logger.info("Individual %d is going to have a layer removed from Module %d: %s; position %d",
-                    individual_idx, module_idx, self.module_name, remove_idx)
+                    individual.id, module_idx, self.module_name, remove_idx)
         self.measure_power(grammar)
 
-    def layer_dsge(self, grammar: 'Grammar', individual_idx: int, module_idx: int, layer_idx: int):
+    def layer_dsge(self, grammar: 'Grammar', individual: 'Individual', module_idx: int, layer_idx: int, generation: int):
         from energize.evolution.operators import mutation_dsge
+        old_phenotype = grammar.decode(
+            self.module_name, self.layers[layer_idx])
         mutation_dsge(self.layers[layer_idx], grammar)
         logger.info("Individual %d is going to have a DSGE mutation on Module %d: %s; position %d",
-                    individual_idx, module_idx, self.module_name, layer_idx)
+                    individual.id, module_idx, self.module_name, layer_idx)
+        individual.track_mutation(MutationType.DSGE_LAYER, generation, {
+            "from": old_phenotype,
+            "to": grammar.decode(self.module_name, self.layers[layer_idx])
+        })
         self.measure_power(grammar)
 
-    def layer_add_connection(self, grammar: 'Grammar', individual_idx: int, module_idx: int, layer_idx: int):
+    def layer_add_connection(self, grammar: 'Grammar', individual: 'Individual', module_idx: int, layer_idx: int, generation: int):
         connection_possibilities = list(range(max(0, layer_idx-self.module_configuration.levels_back),
                                               layer_idx-1))
         connection_possibilities = list(
@@ -213,10 +234,15 @@ class Module:
         new_input: int = random.choice(connection_possibilities)
         self.connections[layer_idx].append(new_input)
         logger.info("Individual %d is going to have a new connection Module %d: %s; layer %d",
-                    individual_idx, module_idx, self.module_name, layer_idx)
+                    individual.id, module_idx, self.module_name, layer_idx)
+        individual.track_mutation(MutationType.ADD_CONNECTION, generation, {
+            "module_idx": module_idx,
+            "layer_idx": layer_idx,
+            "new_input": new_input
+        })
         self.measure_power(grammar)
 
-    def layer_remove_connection(self, grammar: 'Grammar', individual_idx: int, module_idx: int, layer_idx: int):
+    def layer_remove_connection(self, grammar: 'Grammar', individual: 'Individual', module_idx: int, layer_idx: int, generation: int):
         connection_possibilities = list(
             set(self.connections[layer_idx]) - set([layer_idx-1]))
         if len(connection_possibilities) == 0:
@@ -224,7 +250,12 @@ class Module:
         r_connection = random.choice(connection_possibilities)
         self.connections[layer_idx].remove(r_connection)
         logger.info("Individual %d is going to have a connection removed from Module %d: %s; layer %d",
-                    individual_idx, module_idx, self.module_name, layer_idx)
+                    individual.id, module_idx, self.module_name, layer_idx)
+        individual.track_mutation(MutationType.REMOVE_CONNECTION, generation, {
+            "module_idx": module_idx,
+            "layer_idx": layer_idx,
+            "removed_input": r_connection
+        })
         self.measure_power(grammar)
 
     def __eq__(self, other: object) -> bool:
