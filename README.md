@@ -1,6 +1,6 @@
-# EvoDENSS
+# ENERGIZE
 
-[![](https://img.shields.io/badge/Python-3.10-blue.svg)](https://www.python.org/downloads/) [![](https://img.shields.io/badge/PyTorch-2.0.0-blue.svg)](https://pytorch.org/get-started/previous-versions/) [![](https://img.shields.io/badge/cudatoolkit-11.3-blue.svg)](https://developer.nvidia.com/cuda-downloads/)
+[![](https://img.shields.io/badge/Python-3.10-blue.svg)](https://www.python.org/downloads/) [![](https://img.shields.io/badge/PyTorch-2.2.0-blue.svg)](https://pytorch.org/get-started/previous-versions/) [![](https://img.shields.io/badge/cudatoolkit-12.1.0-blue.svg)](https://developer.nvidia.com/cuda-downloads/)
 
 [![](https://img.shields.io/badge/License-Apache_2.0-green.svg)]()
 
@@ -43,7 +43,7 @@ pip install -r requirements.txt
 
 ## Running ENERGIZE
 
-- In order to run fast ENERGIZE, you need to run the evodenss module as a script:
+- In order to run fast ENERGIZE, you need to run the energize module as a script:
 
 ```
 python3 -u -m energize.main \
