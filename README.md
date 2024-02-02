@@ -67,14 +67,7 @@ python3 -u -m energize.main \
 In case several seeds are needed to be run, that can be done with Bash:
 
 ```
-for i in {7..9}; do \
-    python3 -u -m energize.main \
-    -d mnist \
-    -c example/example_config.json \
-    -g example/example.grammar \
-    -r $i \
-    --gpu-enabled; \
-done
+bash batch.sh example/example_config.json example/energize.grammar fashion-mnist 5
 ```
 
 Externally to the code itself, two main files are required to execute any run.

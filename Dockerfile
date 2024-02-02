@@ -1,6 +1,6 @@
 FROM ubuntu:23.10
 RUN apt-get update
-RUN apt-get install -y wget libjpeg8-dev zlib1g-dev locales && locale-gen en_US.UTF-8 
+RUN apt-get install -y wget libjpeg8-dev zlib1g-dev locales jq && locale-gen en_US.UTF-8 
 RUN apt-get clean
 RUN rm -rf /var/lib/apt/lists/*
 
