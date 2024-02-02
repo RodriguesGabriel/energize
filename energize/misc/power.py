@@ -1,7 +1,8 @@
 import logging
 import statistics as stats
+import sys
 from typing import Any, List
-
+import torch
 import numpy as np
 import pynvml
 from pyJoules.device import Device, DeviceFactory
@@ -29,6 +30,10 @@ class PowerConfig:
             self._ensure_gpu_exclusivity()
 
     def _ensure_gpu_exclusivity(self):
+        if not torch.cuda.is_available():
+            logger.critical("CUDA is not available.")
+            sys.exit(1)
+
         pynvml.nvmlInit()
         gpu = pynvml.nvmlDeviceGetHandleByIndex(0)
         try:
