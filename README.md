@@ -105,6 +105,17 @@ coverage report
 - `-r`/`--run`: Identifies the run id and seed to be used;
 - `--gpu-enabled`: When used, it enables GPU processing.
 
+#### Docker
+Build the image
+```
+docker build -t energize .
+```
+
+Run the container
+```
+docker run --gpus '"device=0"' --name energize_gpu0 -v $PWD:/home/ -it energize bash
+```
+
 #### ENERGIZE features
 
 ###### 1. ...
