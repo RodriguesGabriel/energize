@@ -8,7 +8,6 @@ function change_gpu_mode() {
     sudo nvidia-smi -i 0 -c $MODE >> /dev/null 2>&1
     if [ $? -ne 0 ]; then
         echo "Error occurred on nvidia-smi"
-        exit 1
     fi
 }
 
