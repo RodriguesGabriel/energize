@@ -125,8 +125,8 @@ class Module:
                 logger.warning("Module power is zero. Not saving it.")
             else:
                 self.history.append(deepcopy(self))
-        except InvalidNetwork as e:
-            logger.warning("Invalid network: %s", e)
+        except InvalidNetwork:
+            pass
         except RuntimeError as e:
             logger.warning("Runtime error: %s", e)
 
