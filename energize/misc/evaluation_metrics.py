@@ -37,13 +37,7 @@ class EvaluationMetrics:
         )
 
     def list_fields(self) -> List[str]:
-        class_fields = [field.name for field in fields(self)]
-        # if self.accuracy is not None and len(self.accuracy) > 1:
-        #     idx = class_fields.index("accuracy")
-        #     class_fields[idx] = "accuracy_0"
-        #     for i in range(1, len(self.accuracy)):
-        #         class_fields.insert(idx + i, f"accuracy_{i}")
-        return class_fields
+        return tuple(field.name for field in fields(self))
 
     def __iter__(self) -> Iterator[Any]:
         data = list(astuple(self))

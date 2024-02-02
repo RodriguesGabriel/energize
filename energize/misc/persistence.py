@@ -12,6 +12,7 @@ import dill
 from energize.evolution import Individual
 from energize.misc.constants import (MODEL_FILENAME, OVERALL_BEST_FOLDER,
                                      STATS_FOLDER_NAME)
+from energize.misc.enums import Mutation
 from energize.misc.evaluation_metrics import EvaluationMetrics
 from energize.misc.power import PowerConfig
 from energize.networks.module import Module
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
 
 __all__ = ['RestoreCheckpoint', 'SaveCheckpoint', 'save_overall_best_individual',
            'build_individual_path', 'build_overall_best_path']
+
 
 
 class RestoreCheckpoint:
@@ -120,13 +122,15 @@ class SaveCheckpoint:
                                f"generation_{checkpoint.last_processed_generation}.csv"), 'w') as csvfile:
             csvwriter = csv.writer(
                 csvfile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-            csvwriter.writerow(["id", "phenotype", "num_epochs", "total_training_time_allocated"] +
+            csvwriter.writerow(["id", "phenotype", "num_epochs", "total_training_time_allocated", "modules", "mutation_tracker"] +
                                checkpoint.population[0].metrics.list_fields())
             for ind in checkpoint.population:
                 csvwriter.writerow([ind.id,
                                     ind.phenotype,
                                     ind.num_epochs,
                                     ind.total_allocated_train_time,
+                                    ind.modules_phenotypes,
+                                    ind.mutation_tracker,
                                     *ind.metrics])  # type: ignore
 
         test_accuracies_path = os.path.join(stats_path, "test_accuracies.csv")
@@ -147,6 +151,8 @@ class SaveCheckpoint:
             "phenotype": ind.phenotype,
             "num_epochs": ind.num_epochs,
             "total_training_time_allocated": ind.total_allocated_train_time,
+            "modules": ind.modules_phenotypes,
+            "mutation_tracker": ind.mutation_tracker,
             **dict(zip(ind.metrics.list_fields(), ind.metrics))
         } for ind in checkpoint.population]
 
@@ -156,7 +162,7 @@ class SaveCheckpoint:
 
         with open(os.path.join(stats_path,
                                f"generation_{checkpoint.last_processed_generation}.json"), 'w') as file:
-            json.dump(json_obj, file, indent=4)
+            json.dump(json_obj, file, indent=2, cls=Encoder)
 
         test_accuracies_path = os.path.join(stats_path,
                                             "test_accuracies.json")
@@ -173,6 +179,16 @@ class SaveCheckpoint:
         with open(test_accuracies_path, 'w') as file:
             json.dump(test_accuracies, file, indent=4)
 
+
+class Encoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Mutation):
+            return {
+                'mutation_type': str(obj.mutation_type),
+                'gen': obj.gen,
+                'data': obj.data
+            }
+        return super().default(obj)
 
 def save_overall_best_individual(best_individual_path: str, parent: Individual) -> None:
     # pylint: disable=unexpected-keyword-arg

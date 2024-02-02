@@ -1,6 +1,7 @@
 import re
+from dataclasses import astuple, dataclass
 from enum import Enum, unique
-from typing import Any, List, Optional
+from typing import Any, Iterator, List, Optional
 
 import torch
 
@@ -96,3 +97,31 @@ class FitnessMetricName(ExtendedEnum):
         if (match := re.match(FitnessMetricName.ENERGY_N.value, value)):
             return FitnessMetricName.ENERGY_N, int(match[1])
         return FitnessMetricName(value), None
+
+
+class MutationType(ExtendedEnum):
+    TRAIN_LONGER = "train_longer"
+    REUSE_MODULE = "reuse_module"
+    REMOVE_MODULE = "remove_module"
+    ADD_LAYER = "add_layer"
+    REUSE_LAYER = "add_layer"
+    REMOVE_LAYER = "remove_layer"
+    DSGE_LAYER = "dsge_layer"
+    ADD_CONNECTION = "add_connection"
+    REMOVE_CONNECTION = "remove_connection"
+    DSGE_MACRO = "dsge_macro"
+
+    def __str__(self) -> str:
+        return self.value
+
+@dataclass
+class Mutation:
+    mutation_type: MutationType
+    gen: int
+    data: dict
+
+    def __str__(self) -> str:
+        return f"Mutation type [{self.mutation_type}] on gen [{self.gen}] with data: {self.data}"
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(astuple(self))

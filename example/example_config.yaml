@@ -27,6 +27,7 @@ evolutionary:
     dsge_layer: 0.15
     macro_layer: 0.3
     train_longer: 0.2
+  track_mutations: true
   fitness_metric: accuracy
   fitness_function:
     - metric: accuracy_1
