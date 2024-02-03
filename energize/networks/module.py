@@ -91,7 +91,11 @@ class Module:
         if self.power_config is None or not self.power_config.measure_modules_power:
             return
 
-        phenotype = self.decode(grammar, 0)[1][1:]
+        phenotype = self.decode(grammar, 0)[1].lstrip()
+
+        if phenotype == '':
+            return
+
         parsed_network, _ = parse_phenotype(phenotype)
         device = BaseEvaluator.decide_device(Device.GPU)
 
@@ -183,12 +187,21 @@ class Module:
     def remove_layer(self, grammar: 'Grammar', individual: 'Individual', module_idx: int, generation: int):
         if len(self.layers) <= self.module_configuration.min_expansions:
             return
-        remove_idx = random.randint(0, len(self.layers)-1)
-        individual.track_mutation(MutationType.REMOVE_LAYER, generation, {
+        remove_idx = random.randint(0, len(self.layers) - 1)
+        track_mutation_data = {
             "layer": grammar.decode(self.module_name, self.layers[remove_idx]),
             "module_idx": module_idx,
             "remove_idx": remove_idx
-        })
+        }
+        # if there is only one layer, remove module from individual
+        if len(self.layers) == 1:
+            individual.modules.remove(self)
+            track_mutation_data["observations"] = "Module removed because it had only one layer."
+            individual.track_mutation(MutationType.REMOVE_LAYER, generation, track_mutation_data)
+            logger.info("Individual %d had its only layer removed from Module %d: %s; position %d so the module was removed.",
+                    individual.id, module_idx, self.module_name, remove_idx)
+            return
+        individual.track_mutation(MutationType.REMOVE_LAYER, generation, track_mutation_data)
         del self.layers[remove_idx]
 
         # fix connections
