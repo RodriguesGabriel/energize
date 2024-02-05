@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import numpy as np
 
-from energize.misc.enums import Mutation, MutationType
+from energize.misc.enums import Entity, Mutation, MutationType
 from energize.misc.evaluation_metrics import EvaluationMetrics
 from energize.misc.fitness_metrics import Fitness
 from energize.networks import Module
@@ -156,6 +156,13 @@ class Individual:
 
     def get_num_layers(self) -> int:
         return sum(len(m.layers) for m in self.modules)
+
+    def requires_dsge_mutation_macro(self, rule_idx: int, macro_rule: str) -> tuple[bool, str]:
+        if macro_rule == "model_partition":
+            partition_point = tuple(self.macro[rule_idx].expansions.values())[0][0][1].attribute.values
+            if partition_point[0] >= self.get_num_layers():
+                return True, "Mutation enforced because the partition point is greater than the number of layers"
+        return False, None
 
     def _decode(self, grammar: Grammar) -> str:
         """
