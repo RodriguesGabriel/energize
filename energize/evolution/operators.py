@@ -176,14 +176,18 @@ def mutation(individual: Individual,
     }
     # macro level mutation
     for rule_idx, macro_rule in enumerate(individual_copy.macro_rules):
-        if random.random() <= macro_layer_prob:
+        requires_mutation, requires_mutation_reason = individual_copy.requires_dsge_mutation_macro(rule_idx, macro_rule)
+        if random.random() <= macro_layer_prob or requires_mutation:
             old_macro_phenotype = grammar.decode(
                 macro_rule, individual_copy.macro[rule_idx])
             mutation_dsge(individual_copy.macro[rule_idx], grammar, dynamic_bounds)
-            individual_copy.track_mutation(MutationType.DSGE_MACRO, generation, {
+            track_mutation_data = {
                 "from": old_macro_phenotype,
                 "to": grammar.decode(macro_rule, individual_copy.macro[rule_idx])
-            })
+            }
+            if requires_mutation:
+                track_mutation_data["observations"] = requires_mutation_reason
+            individual_copy.track_mutation(MutationType.DSGE_MACRO, generation, track_mutation_data)
             logger.info(
                 "Individual %d is going to have a macro mutation", individual_copy.id)
     return individual_copy

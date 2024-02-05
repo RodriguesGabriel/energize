@@ -99,6 +99,8 @@ class ModelBuilder():
         # add additional output layer
         if self.parsed_network.model_partition_points is not None:
             assert self.parsed_network.layers[-1].layer_type == LayerType.FC
+            assert self.parsed_network.model_partition_points <= len(
+                self.parsed_network.layers)
             layer_id = LayerId(len(self.parsed_network.layers))
             layer = Layer(layer_id,
                           layer_type=LayerType('fc'),
