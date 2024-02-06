@@ -58,7 +58,7 @@ class ParsedNetwork:
                         self.layers_connections.values()))
         )
         result: Set[int] = keyset.difference(values_set)
-        return list(map(LayerId, result))
+        return list(sorted(map(LayerId, result)))
 
 
 class Optimiser:

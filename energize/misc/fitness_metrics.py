@@ -204,18 +204,18 @@ class PowerMetric(FitnessMetric):
         power_data = np.divide(measures, durations)
         self.power_data = {
             "duration": {
-                "mean": stats.mean(durations),
-                "std": stats.stdev(durations),
+                "mean": np.mean(durations),
+                "std": np.std(durations),
                 "data": durations
             },
             "energy": {
-                "mean": stats.mean(measures),
-                "std": stats.stdev(measures),
+                "mean": np.mean(measures),
+                "std": np.std(measures),
                 "data": measures
             },
             "power": {
-                "mean": stats.mean(power_data),
-                "std": stats.stdev(power_data),
+                "mean": np.mean(power_data),
+                "std": np.std(power_data),
                 "data": power_data.tolist()
             }
         }
