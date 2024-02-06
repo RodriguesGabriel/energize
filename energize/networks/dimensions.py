@@ -32,17 +32,17 @@ class Dimensions:
             elif layer.layer_parameters['padding'] == "valid":
                 kernel_size = layer.layer_parameters['kernel_size']
                 height = ceil(
-                    (input_dimensions.height - kernel_size + 1) / layer.layer_parameters['stride'])
-                width = ceil((input_dimensions.width - kernel_size +
+                    (abs(input_dimensions.height - kernel_size) + 1) / layer.layer_parameters['stride'])
+                width = ceil((abs(input_dimensions.width - kernel_size) +
                              1) / layer.layer_parameters['stride'])
             elif isinstance(layer.layer_parameters['padding'], tuple):
                 padding_h = layer.layer_parameters['padding'][0]
                 padding_w = layer.layer_parameters['padding'][1]
                 kernel_size_h: int = layer.layer_parameters['kernel_size'][0]
                 kernel_size_w: int = layer.layer_parameters['kernel_size'][1]
-                height = ceil((input_dimensions.height - kernel_size_h + 1) /
+                height = ceil((abs(input_dimensions.height - kernel_size_h) + 1) /
                               layer.layer_parameters['stride']) + padding_h * 2
-                width = ceil((input_dimensions.width - kernel_size_w + 1) /
+                width = ceil((abs(input_dimensions.width - kernel_size_w) + 1) /
                              layer.layer_parameters['stride']) + padding_w * 2
             return cls(out_channels, height, width)
         if layer.layer_type in [LayerType.POOL_AVG, LayerType.POOL_MAX]:
@@ -64,9 +64,9 @@ class Dimensions:
             elif isinstance(kernel_size, tuple):
                 kernel_h = kernel_size[0]
                 kernel_w = kernel_size[1]
-            height = ceil((input_dimensions.height - kernel_h + 1) /
+            height = ceil((abs(input_dimensions.height - kernel_h) + 1) /
                           layer.layer_parameters['stride']) + padding_h
-            width = ceil((input_dimensions.width - kernel_w + 1) /
+            width = ceil((abs(input_dimensions.width - kernel_w) + 1) /
                          layer.layer_parameters['stride']) + padding_w
             return cls(out_channels, height, width)
         if layer.layer_type in [LayerType.BATCH_NORM, LayerType.DROPOUT, LayerType.IDENTITY, LayerType.RELU_AGG]:
