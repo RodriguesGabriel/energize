@@ -507,7 +507,7 @@ class LegacyEvaluator(BaseEvaluator):
                 max_epochs_reached=num_epochs+trainer.trained_epochs >= learning_params.epochs,
                 power=power_data
             )
-        except InvalidNetwork as e:
+        except (InvalidNetwork, ValueError, IndexError) as e:
             logger.warning(
                 "Invalid model. Fitness will be computed as invalid individual. Reason: %s", e.message)
             fitness_value = self._calculate_invalid_network_fitness(
