@@ -158,13 +158,20 @@ class Individual:
     def load(self, grammar: Grammar, phenotype: str, config_macro_structure: list, weights_path: Optional[str] = None) -> "Individual":
         assert not self.modules
         assert self.id == 0
+        SPLIT_LAYERS_PATTERN = r'\s(?=layer:)'
+
         params = re.split(fr"(?={'|'.join(config_macro_structure)})", phenotype)
         params = tuple(i.strip() for i in params)
-        modules = params[0].split(' | ')
-        # get the output layer from the last module
-        last_module_layers = re.split(r'\s(?=layer:)', modules[-1])
-        output_layer = last_module_layers[-1]
-        modules[-1] = ' '.join(last_module_layers[:-1])
+        if '|' in params[0]:
+            modules = params[0].split(' | ')
+            # get the output layer from the last module
+            last_module_layers = re.split(SPLIT_LAYERS_PATTERN, modules[-1])
+            output_layer = last_module_layers[-1]
+            modules[-1] = ' '.join(last_module_layers[:-1])
+        else:
+            modules = re.split(SPLIT_LAYERS_PATTERN, params[0])
+            output_layer = modules[-1]
+            modules = modules[:-1]
         # get the macro parameters
         macro = params[1:]
 
