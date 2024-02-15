@@ -72,20 +72,21 @@ class Module:
 
     @staticmethod
     def load(grammar: 'Grammar', phenotype: str, modules_configuration: dict) -> 'Module':
-        module_layers = []
-        module_type = None
-        for layer in re.split(r'\s(?=layer:)', phenotype):
-            if module_type is None:
-                for s in modules_configuration.keys():
-                    layer_geno = grammar.encode(layer, s)
-                    if layer_geno is not None:
-                        module_type = s
-                        break
-            assert module_type is not None
-            layer_geno = grammar.encode(layer, module_type)
-            # ensure that the just encoded genotype decodes to the same
-            grammar.ensure_genotype_integrity(layer, layer_geno, module_type)
-            module_layers.append(layer_geno)
+        def parse_layers(start_symbol: str):
+            module_layers = []
+            for layer in re.split(r'\s(?=layer:)', phenotype):
+                layer_geno = grammar.encode(layer, start_symbol)
+                # ensure that the just encoded genotype decodes to the same
+                grammar.ensure_genotype_integrity(layer, layer_geno, start_symbol)
+                module_layers.append(layer_geno)
+            return start_symbol, module_layers
+
+        for start_symbol in modules_configuration.keys():
+            try:
+                module_type, module_layers = parse_layers(start_symbol)
+                break
+            except AssertionError:
+                continue
 
         new_module = Module(module_type, modules_configuration[module_type])
         new_module.layers = module_layers
