@@ -226,6 +226,7 @@ def select_fittest(population: List[Individual],
             elite.total_allocated_train_time = parent.total_allocated_train_time
             elite.evaluate(grammar,
                            cnn_eval,
+                           generation,
                            persistence.build_individual_path(
                                checkpoint_base_path, run, generation, elite.id),
                            persistence.build_individual_path(checkpoint_base_path, run, generation, elite.id))
@@ -259,6 +260,7 @@ def select_fittest(population: List[Individual],
                     checkpoint_base_path, run, generation, parent_10min.id)
                 parent_10min.evaluate(grammar,
                                       cnn_eval,
+                                      generation,
                                       path,
                                       path)
 

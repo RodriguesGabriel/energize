@@ -29,12 +29,28 @@ def evolve(run: int,
         logger.info("Creating the initial population")
 
         # create initial population
-        population = [
-            Individual(config['network']['architecture'], _id_,
-                       config['evolutionary']['track_mutations'], run)
-            .initialise(grammar, config['network']['architecture']['reuse_layer'])
-            for _id_ in range(config['evolutionary']['lambda'])
-        ]
+        if config.get('energize') and config['energize'].get('seed_model'):
+            # load seed model
+            logger.info("Loading seed model")
+            seed_individual = Individual(config['network']['architecture'], 0,
+                                         config['evolutionary']['track_mutations'], run)\
+                .load(grammar, config['energize']['seed_model']['phenotype'],
+                      config['network']['architecture']['macro_structure'])
+            population = [seed_individual]
+            for _id_ in range(1, config['evolutionary']['lambda']):
+                population.append(operators.mutation(deepcopy(seed_individual),
+                                                     grammar,
+                                                     generation,
+                                                     config['evolutionary']['mutation'],
+                                                     config['network']['learning']['default_train_time']))
+                population[_id_].id = _id_
+        else:
+            population = [
+                Individual(config['network']['architecture'], _id_,
+                           config['evolutionary']['track_mutations'], run)
+                .initialise(grammar, config['network']['architecture']['reuse_layer'])
+                for _id_ in range(config['evolutionary']['lambda'])
+            ]
 
         # set initial population variables and evaluate population
         population_fits = []
@@ -47,6 +63,7 @@ def evolve(run: int,
             population_fits.append(
                 ind.evaluate(grammar,
                              checkpoint.evaluator,
+                             generation,
                              persistence.build_individual_path(config['checkpoints_path'], run, generation, idx))
             )
 
@@ -86,6 +103,7 @@ def evolve(run: int,
                 ind.evaluate(
                     grammar,
                     checkpoint.evaluator,
+                    generation,
                     persistence.build_individual_path(
                         config['checkpoints_path'], run, generation, idx),
                     persistence.build_individual_path(config['checkpoints_path'],
@@ -125,7 +143,8 @@ def evolve(run: int,
 
     logger.info("Best fitness of generation %d: %f",
                 generation, max(population_fits).value)
-    logger.info("Best overall fitness: %f\n\n\n", checkpoint.best_fitness.value)
+    logger.info("Best overall fitness: %f\n\n\n",
+                checkpoint.best_fitness.value)
 
     return Checkpoint(
         run=run,

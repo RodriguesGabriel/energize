@@ -51,9 +51,14 @@ class PowerConfig:
         finally:
             pynvml.nvmlShutdown()
 
+    def get(self, key, default=None):
+        return self.config.get(key, default)
+
     def __getitem__(self, key):
         return self.config[key]
 
+    def __contains__(self, key):
+        return key in self.config
 
 def measure_power(power_config: PowerConfig, func, func_args):
     n = power_config["measure_power"]["num_measurements_test"]

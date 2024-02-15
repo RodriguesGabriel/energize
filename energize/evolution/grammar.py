@@ -1,11 +1,14 @@
 import filecmp
 import os
+import re
 import shutil
 import sys
 from copy import deepcopy
 from dataclasses import dataclass, field
+from optparse import Option
 from random import randint, uniform
-from typing import Callable, Dict, Generic, List, NewType, Optional, TypeVar, get_args
+from typing import (Callable, Dict, Generic, List, NewType, Optional, TypeVar,
+                    get_args)
 
 from energize.misc.enums import AttributeType
 
@@ -398,16 +401,18 @@ class Grammar:
                 if (s := self.search_symbol(query, symbol)) is not None:
                     return [(i, symbol), *s]
 
-    def encode(self, phenotype: str, start_symbol: str) -> Genotype:
+    def encode(self, phenotype: str, start_symbol: str) -> Optional[Genotype]:
         start_symbol = NonTerminal(start_symbol)
         symbol_type, *params = [i.split(':') for i in phenotype.split(' ')]
         params = dict(params)
         expansions, codons = {}, {}
-        symbol_traceback = self.search_symbol(':'.join(symbol_type), start_symbol)
+        symbol_traceback = self.search_symbol(
+            ':'.join(symbol_type), start_symbol)
+        if symbol_traceback is None:
+            return
         for i, symbol in symbol_traceback[:-1]:
             self.encode_recursive(symbol, i, expansions, codons, params)
         return Genotype(expansions, codons)
-
 
     def encode_recursive(self, symbol, i, expansions: dict, codons: dict, params: dict):
         if isinstance(symbol, NonTerminal):
@@ -427,3 +432,8 @@ class Grammar:
         elif isinstance(symbol, Terminal) and symbol.name in params:
             attribute_type = get_args(symbol.attribute.__orig_class__)[0]
             symbol.attribute.values = [attribute_type(params[symbol.name])]
+
+    def ensure_genotype_integrity(self, phenotype, genotype, start_symbol):
+        assert genotype is not None
+        assert self.decode(start_symbol, genotype) == re.sub(
+            r'\sinput:\-?\d+', '', phenotype)

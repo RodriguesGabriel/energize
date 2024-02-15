@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import random
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -154,12 +155,41 @@ class Individual:
 
         return self
 
+    def load(self, grammar: Grammar, phenotype: str, config_macro_structure: list, weights_path: Optional[str] = None) -> "Individual":
+        assert not self.modules
+        assert self.id == 0
+        params = re.split(fr"(?={'|'.join(config_macro_structure)})", phenotype)
+        params = tuple(i.strip() for i in params)
+        modules = params[0].split(' | ')
+        # get the output layer from the last module
+        last_module_layers = re.split(r'\s(?=layer:)', modules[-1])
+        output_layer = last_module_layers[-1]
+        modules[-1] = ' '.join(last_module_layers[:-1])
+        # get the macro parameters
+        macro = params[1:]
+
+        for module in modules:
+            new_module: Module = Module.load(grammar, module, self.modules_configurations)
+            self.modules.append(new_module)
+
+        self.output = grammar.encode(output_layer, self.output_rule)
+        grammar.ensure_genotype_integrity(output_layer, self.output, self.output_rule)
+
+        # TODO dynamic bounds?
+        for m, m_rule in zip(macro, config_macro_structure):
+            macro_geno = grammar.encode(m, m_rule)
+            grammar.ensure_genotype_integrity(m, macro_geno, m_rule)
+            self.macro.append(macro_geno)
+
+        return self
+
     def get_num_layers(self) -> int:
         return sum(len(m.layers) for m in self.modules)
 
     def requires_dsge_mutation_macro(self, rule_idx: int, macro_rule: str) -> tuple[bool, str]:
         if macro_rule == "model_partition":
-            partition_point = tuple(self.macro[rule_idx].expansions.values())[0][0][1].attribute.values
+            partition_point = tuple(self.macro[rule_idx].expansions.values())[
+                0][0][1].attribute.values
             if partition_point[0] >= self.get_num_layers():
                 return True, "Mutation enforced because the partition point is greater than the number of layers"
         return False, None
@@ -237,6 +267,7 @@ class Individual:
     def evaluate(self,
                  grammar: Grammar,
                  cnn_eval: BaseEvaluator,
+                 generation: int,
                  model_saving_dir: str,
                  parent_dir: Optional[str] = None) -> Fitness:  # pragma: no cover
 
@@ -255,7 +286,11 @@ class Individual:
         allocated_train_time: float = self.total_allocated_train_time - self.current_time
         logger.info(
             f"-----> Starting evaluation for individual {self.id} for {allocated_train_time} secs")
+
+        first_individual_overall = generation == 0 and self.id == 0
+
         evaluation_metrics: EvaluationMetrics = cnn_eval.evaluate(phenotype,
+                                                                  first_individual_overall,
                                                                   model_saving_dir,
                                                                   parent_dir,
                                                                   reuse_parent_weights,
