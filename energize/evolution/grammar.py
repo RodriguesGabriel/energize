@@ -1,11 +1,14 @@
 import filecmp
 import os
+import re
 import shutil
 import sys
 from copy import deepcopy
 from dataclasses import dataclass, field
+from optparse import Option
 from random import randint, uniform
-from typing import Callable, Dict, Generic, List, NewType, Optional, TypeVar
+from typing import (Callable, Dict, Generic, List, NewType, Optional, TypeVar,
+                    get_args)
 
 from energize.misc.enums import AttributeType
 
@@ -384,3 +387,53 @@ class Grammar:
             assert symbol.attribute.values is not None
             return [f"{symbol.name}:{','.join(map(str, symbol.attribute.values))}"]
         return phenotype
+
+    def search_symbol(self, query, query_space):
+        if isinstance(query_space, NonTerminal):
+            for i, expansions in enumerate(self.grammar[query_space]):
+                if (s := self.search_symbol(query, expansions)) is not None:
+                    return [(i, query_space), *s]
+        elif isinstance(query_space, Terminal):
+            if query_space.name == query:
+                return []
+        else:
+            for i, symbol in enumerate(query_space):
+                if (s := self.search_symbol(query, symbol)) is not None:
+                    return [(i, symbol), *s]
+
+    def encode(self, phenotype: str, start_symbol: str) -> Optional[Genotype]:
+        start_symbol = NonTerminal(start_symbol)
+        symbol_type, *params = [i.split(':') for i in phenotype.split(' ')]
+        params = dict(params)
+        expansions, codons = {}, {}
+        symbol_traceback = self.search_symbol(
+            ':'.join(symbol_type), start_symbol)
+        if symbol_traceback is None:
+            return
+        for i, symbol in symbol_traceback[:-1]:
+            self.encode_recursive(symbol, i, expansions, codons, params)
+        return Genotype(expansions, codons)
+
+    def encode_recursive(self, symbol, i, expansions: dict, codons: dict, params: dict):
+        if isinstance(symbol, NonTerminal):
+            for k, v in params.items():
+                if i is not None:
+                    break
+                for ii, terminal in enumerate(self.grammar[symbol]):
+                    if terminal[0].name in (k, f"{k}:{v}"):
+                        i = ii
+                        break
+            if i is None:
+                return
+            codons[symbol] = [i]
+            expansions[symbol] = [deepcopy(self.grammar[symbol][i])]
+            for s in expansions[symbol][0]:
+                self.encode_recursive(s, None, expansions, codons, params)
+        elif isinstance(symbol, Terminal) and symbol.name in params:
+            attribute_type = get_args(symbol.attribute.__orig_class__)[0]
+            symbol.attribute.values = [attribute_type(params[symbol.name])]
+
+    def ensure_genotype_integrity(self, phenotype, genotype, start_symbol):
+        assert genotype is not None
+        assert self.decode(start_symbol, genotype) == re.sub(
+            r'\sinput:\-?\d+', '', phenotype)

@@ -120,6 +120,20 @@
                 },
                 "ensure_gpu_exclusivity": {
                     "type": "boolean"
+                },
+                "seed_model": {
+                    "type": "object",
+                    "properties": {
+                        "phenotype": {
+                            "type": "string"
+                        },
+                        "weights_path": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "phenotype"
+                    ]
                 }
             },
             "required": [
