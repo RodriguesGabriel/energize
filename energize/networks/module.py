@@ -4,7 +4,7 @@ import time
 from copy import deepcopy
 from sys import float_info
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
-
+import re
 import numpy as np
 import torch
 from torch import Size, nn
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 class Module:
     history: List['Module'] = []
-    power_config: PowerConfig = None
+    power_config: Optional[PowerConfig] = None
 
     def __init__(self, module_name: str, module_configuration: ModuleConfig) -> None:
         self.module_name: str = module_name
@@ -69,6 +69,34 @@ class Module:
                         connection_possibilities, sample_size)
 
         self.measure_power(grammar)
+
+    @staticmethod
+    def load(grammar: 'Grammar', phenotype: str, modules_configuration: dict) -> 'Module':
+        module_layers = []
+        module_type = None
+        for layer in re.split(r'\s(?=layer:)', phenotype):
+            if module_type is None:
+                for s in modules_configuration.keys():
+                    layer_geno = grammar.encode(layer, s)
+                    if layer_geno is not None:
+                        module_type = s
+                        break
+            assert module_type is not None
+            layer_geno = grammar.encode(layer, module_type)
+            # ensure that the just encoded genotype decodes to the same
+            grammar.ensure_genotype_integrity(layer, layer_geno, module_type)
+            module_layers.append(layer_geno)
+
+        new_module = Module(module_type, modules_configuration[module_type])
+        new_module.layers = module_layers
+        # Initialise connections: feed-forward (TODO and allowing skip-connections)
+        new_module.connections = {}
+        for layer_idx in range(len(module_layers)):
+            new_module.connections[layer_idx] = [layer_idx-1,]
+
+        new_module.measure_power(grammar)
+
+        return new_module
 
     def decode(self, grammar: 'Grammar', layer_counter: int) -> Tuple[int, str]:
         phenotype: str = ''

@@ -100,5 +100,8 @@ class Config():
                 logger.warning(
                     "'model_partition' was not found in the macro_structure but it was active in the energize section. macro_structure was updated accordingly.")
 
+    def get(self, key: str, default=None):
+        return self.config.get(key, default)
+
     def __getitem__(self, key: str) -> Any:
         return self.config[key]

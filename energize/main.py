@@ -35,7 +35,7 @@ def create_initial_checkpoint(dataset_name: str, config: Config, run: int, is_gp
                                                 run,
                                                 config['evolutionary'],
                                                 config['network']['learning'],
-                                                config['energize'],
+                                                config.get('energize'),
                                                 is_gpu_run)
     os.makedirs(os.path.join(
         config['checkpoints_path'], f"run_{run}"), exist_ok=True)

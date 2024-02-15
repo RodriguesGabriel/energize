@@ -4,6 +4,7 @@ data/
 config_files/
 grammars/
 energize/train_longer.py
+models/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
