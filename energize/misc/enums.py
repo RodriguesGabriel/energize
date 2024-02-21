@@ -86,6 +86,7 @@ class FitnessMetricName(ExtendedEnum):
     POWER_N = r"power_(\d+)"
     ENERGY = "energy"
     ENERGY_N = r"energy_(\d+)"
+    ZERO_SHOT_ZICO = "zico"
 
     @staticmethod
     def new(value: str) -> tuple['FitnessMetricName', Optional[int]]:

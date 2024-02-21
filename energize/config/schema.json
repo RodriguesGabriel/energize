@@ -67,7 +67,8 @@
                         "accuracy",
                         "loss",
                         "power",
-                        "energy"
+                        "energy",
+                        "zico"
                     ]
                 }
             ]
@@ -164,7 +165,8 @@
                     "$ref": "#/$defs/natural_number"
                 },
                 "max_epochs": {
-                    "$ref": "#/$defs/natural_number"
+                    "type": "number",
+                    "minimum": 0
                 },
                 "mutation": {
                     "type": "object",

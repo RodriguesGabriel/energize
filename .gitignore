@@ -5,6 +5,7 @@ config_files/
 grammars/
 energize/train_longer.py
 models/
+*sandbox*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

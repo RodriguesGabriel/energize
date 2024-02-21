@@ -136,10 +136,12 @@ def evolve(run: int,
     if checkpoint.best_fitness is None or parent.fitness > checkpoint.best_fitness:
         checkpoint.best_fitness = parent.fitness
         persistence.save_overall_best_individual(best_individual_path, parent)
-    best_test_acc: float = checkpoint.evaluator.testing_performance(
-        best_individual_path)
-
-    logger.info("Generation best test accuracy: %f", best_test_acc)
+    if config["network"]["learning"]["default_train_time"] > 0:
+        best_test_acc: float = checkpoint.evaluator.testing_performance(
+            best_individual_path)
+        logger.info("Generation best test accuracy: %f", best_test_acc)
+    else:
+        best_test_acc = None
 
     logger.info("Best fitness of generation %d: %f",
                 generation, max(population_fits).value)

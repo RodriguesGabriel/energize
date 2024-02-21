@@ -8,18 +8,20 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 import torch
+from torch import nn
 from torch.nn.modules import Module
 from torch.utils.data import DataLoader
 
 from energize.misc.enums import Device, FitnessMetricName
 from energize.misc.power import PowerConfig
+from energize.misc.utils import InvalidNetwork
 
 if TYPE_CHECKING:
     from torch import nn
     from torch.utils.data import DataLoader
 
 __all__ = ["Fitness", "FitnessMetric", "AccuracyMetric",
-           "LossMetric", "PowerMetric", "CustomFitnessFunction"]
+           "LossMetric", "PowerMetric", "ZeroShotZicoMetric", "CustomFitnessFunction"]
 
 
 class Fitness:
@@ -240,6 +242,76 @@ class PowerMetric(FitnessMetric):
     @classmethod
     def worst_fitness(cls) -> Fitness:
         return Fitness(float_info.max, cls)
+
+
+class ZeroShotZicoMetric(FitnessMetric):
+    # based on 3https://github.com/cvlab-yonsei/Zero-shot-NAS/blob/master/ImageNet_ZiCo/ZeroShotProxy/compute_zico.py
+    def __init__(self, loss_function: Any = None, batch_size: Optional[int] = None, ) -> None:
+        super().__init__(batch_size, loss_function)
+
+    def compute_metric(self, model: nn.Module, data_loader: DataLoader, device: Device) -> float:
+        try:
+            grad_dict = {}
+            model.train()
+
+            model.cuda()
+            for i, batch in enumerate(data_loader):
+                model.zero_grad()
+                data, label = batch[0], batch[1]
+                data, label = data.cuda(), label.cuda()
+
+                logits = model(data)
+                loss = self.loss_function(logits, label)
+                loss.backward()
+                grad_dict = self.get_grad(model, grad_dict, i)
+
+            for i, modname in enumerate(grad_dict.keys()):
+                grad_dict[modname] = np.array(grad_dict[modname])
+
+            nsr_mean_sum_abs = 0
+            for _, modname in enumerate(grad_dict.keys()):
+                nsr_std = np.std(grad_dict[modname], axis=0)
+                nonzero_idx = np.nonzero(nsr_std)[0]
+                nsr_mean_abs = np.mean(np.abs(grad_dict[modname]), axis=0)
+                tmpsum = np.sum(nsr_mean_abs[nonzero_idx]/nsr_std[nonzero_idx])
+                if tmpsum != 0:
+                    nsr_mean_sum_abs += np.log(tmpsum)
+            return nsr_mean_sum_abs
+        except RuntimeError:
+            return -1
+
+    def get_grad(self, model: nn.Module, grad_dict: dict, step_iter):
+        if step_iter == 0:
+            for name, mod in model.named_modules():
+                if isinstance(mod, (nn.Conv2d, nn.Linear)):
+                    grad_dict[name] = [
+                        mod.weight.grad.data.cpu().reshape(-1).numpy()]
+        else:
+            for name, mod in model.named_modules():
+                if isinstance(mod, (nn.Conv2d, nn.Linear)):
+                    grad_dict[name].append(
+                        mod.weight.grad.data.cpu().reshape(-1).numpy())
+        return grad_dict
+
+    @classmethod
+    def worse_than(cls, this: Fitness, other: Fitness) -> bool:
+        return this.value < other.value
+
+    @classmethod
+    def better_than(cls, this: Fitness, other: Fitness) -> bool:
+        return this.value > other.value
+
+    @classmethod
+    def worse_or_equal_than(cls, this: Fitness, other: Fitness) -> bool:
+        return this.value <= other.value
+
+    @classmethod
+    def better_or_equal_than(cls, this: Fitness, other: Fitness) -> bool:
+        return this.value >= other.value
+
+    @classmethod
+    def worst_fitness(cls) -> Fitness:
+        return Fitness(-1.0, cls)
 
 
 class CustomFitnessFunction(FitnessMetric):

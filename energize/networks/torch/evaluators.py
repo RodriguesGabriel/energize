@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from time import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from types import SimpleNamespace
 
 import numpy as np
 import torch
@@ -47,7 +48,7 @@ def create_fitness_metric(metric_name: FitnessMetricName,
                           loss_function: Optional[Any] = None,
                           power_config: Optional[PowerConfig] = None) -> FitnessMetric:
     if metric_name is FitnessMetricName.ACCURACY \
-            or FitnessMetricName.ACCURACY_N:
+            or metric_name is FitnessMetricName.ACCURACY_N:
         return AccuracyMetric()
     if metric_name is FitnessMetricName.LOSS:
         assert loss_function is not None
@@ -56,6 +57,8 @@ def create_fitness_metric(metric_name: FitnessMetricName,
         return PowerMetric(power_config)
     if metric_name is FitnessMetricName.ENERGY:
         return PowerMetric(power_config, True)
+    if metric_name is FitnessMetricName.ZERO_SHOT_ZICO:
+        return ZeroShotZicoMetric(loss_function)
     raise ValueError(f"Invalid fitness metric: [{metric_name}]")
 
 
@@ -304,7 +307,6 @@ class LegacyEvaluator(BaseEvaluator):
                  train_time: float,
                  num_epochs: int) -> EvaluationMetrics:  # pragma: no cover
 
-        # pylint: disable=cyclic-import,import-outside-toplevel
         from energize.networks.torch.model_builder import ModelBuilder
 
         optimiser: Optimiser
@@ -367,25 +369,30 @@ class LegacyEvaluator(BaseEvaluator):
             }
 
             loss_function = nn.CrossEntropyLoss()
-            trainer = Trainer(model=torch_model,
-                              optimiser=learning_params.torch_optimiser,
-                              loss_function=loss_function,
-                              train_data_loader=train_loader,
-                              validation_data_loader=validation_loader,
-                              n_epochs=learning_params.epochs,
-                              initial_epoch=num_epochs,
-                              device=device,
-                              callbacks=self._build_callbacks(model_saving_dir,
-                                                              metadata_dict,
-                                                              train_time,
-                                                              learning_params.early_stop,
-                                                              self.power_config))
+            if train_time > 0:
+                trainer = Trainer(model=torch_model,
+                                optimiser=learning_params.torch_optimiser,
+                                loss_function=loss_function,
+                                train_data_loader=train_loader,
+                                validation_data_loader=validation_loader,
+                                n_epochs=learning_params.epochs,
+                                initial_epoch=num_epochs,
+                                device=device,
+                                callbacks=self._build_callbacks(model_saving_dir,
+                                                                metadata_dict,
+                                                                train_time,
+                                                                learning_params.early_stop,
+                                                                self.power_config))
 
-            if self.power_config and self.power_config.get("model_partition"):
-                trainer.multi_output_train(
-                    self.power_config["model_partition_n"])
+                if self.power_config and self.power_config.get("model_partition"):
+                    trainer.multi_output_train(
+                        self.power_config["model_partition_n"])
+                else:
+                    trainer.train()
             else:
-                trainer.train()
+                trainer = SimpleNamespace()
+                setattr(trainer, "trained_epochs", 0)
+                setattr(trainer, "loss_values", [])
 
             power_data = {}
             # get training power measurements
@@ -459,18 +466,21 @@ class LegacyEvaluator(BaseEvaluator):
                         power_data['test'] = power_metric.power_data
 
             accuracy: Optional[float | tuple[float]]
-            if fitness_metric is AccuracyMetric:
-                if self.power_config and self.power_config.get("model_partition"):
-                    accuracy = [None] * self.power_config["model_partition_n"]
+            if train_time > 0:
+                if fitness_metric is AccuracyMetric:
+                    if self.power_config and self.power_config.get("model_partition"):
+                        accuracy = [None] * self.power_config["model_partition_n"]
+                    else:
+                        accuracy = None
                 else:
-                    accuracy = None
+                    if self.power_config and self.power_config["model_partition"]:
+                        accuracy = tuple(AccuracyMetric().compute_metric(pm, test_loader, device)
+                                        for pm in model_partitions)
+                        accuracy = (np.mean(accuracy),) + accuracy
+                    else:
+                        accuracy = AccuracyMetric().compute_metric(torch_model, test_loader, device)
             else:
-                if self.power_config and self.power_config["model_partition"]:
-                    accuracy = tuple(AccuracyMetric().compute_metric(pm, test_loader, device)
-                                     for pm in model_partitions)
-                    accuracy = (np.mean(accuracy),) + accuracy
-                else:
-                    accuracy = AccuracyMetric().compute_metric(torch_model, test_loader, device)
+                accuracy = None
 
             if self.fitness_function_params is not None:
                 fitness_function = CustomFitnessFunction(
