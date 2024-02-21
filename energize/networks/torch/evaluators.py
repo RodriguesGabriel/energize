@@ -334,7 +334,7 @@ class LegacyEvaluator(BaseEvaluator):
                     and self.power_config["seed_model"].get("weights_path"):
                 logger.info("Loading seed model weights")
                 torch_model.load_state_dict(torch.load(
-                    self.power_config["seed_model"]["weights_path"]))
+                    self.power_config["seed_model"]["weights_path"]), strict=False)
             else:
                 if reuse_parent_weights:
                     num_epochs = 0
