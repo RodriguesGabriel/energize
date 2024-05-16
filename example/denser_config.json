@@ -1,0 +1,75 @@
+{
+    "checkpoints_path": "./experiments/denser",
+    "statistics_format": "json",
+    "evolutionary": {
+        "generations": 150,
+        "lambda": 4,
+        "max_epochs": 1000000,
+        "mutation": {
+            "add_connection": 0.0,
+            "remove_connection": 0.0,
+            "add_layer": 0.25,
+            "reuse_layer": 0.15,
+            "remove_layer": 0.25,
+            "dsge_layer": 0.15,
+            "macro_layer": 0.3,
+            "train_longer": 0.2
+        },
+        "track_mutations": true,
+        "fitness_metric": "accuracy"
+    },
+    "network": {
+        "architecture": {
+            "reuse_layer": 0.7,
+            "macro_structure": [
+                "learning"
+            ],
+            "output": "softmax",
+            "modules": [
+                {
+                    "name": "features",
+                    "network_structure_init": [
+                        1, 2, 3, 4, 5
+                    ],
+                    "network_structure": [
+                        0,
+                        50
+                    ],
+                    "levels_back": 1
+                },
+                {
+                    "name": "classification",
+                    "network_structure_init": [
+                        1, 2, 3, 4, 5
+                    ],
+                    "network_structure": [
+                        0,
+                        25
+                    ],
+                    "levels_back": 1
+                }
+            ]
+        },
+        "learning": {
+            "data_splits": {
+                "evo_train": 0.7,
+                "evo_validation": 0.2,
+                "evo_test": 0.1
+            },
+            "learning_type": "supervised",
+            "default_train_time": 300,
+            "augmentation": {
+                "train": {
+                    "resize": {
+                        "size": 32
+                    }
+                },
+                "test": {
+                    "resize": {
+                        "size": 32
+                    }
+                }
+            }
+        }
+    }
+}

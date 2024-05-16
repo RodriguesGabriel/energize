@@ -207,8 +207,6 @@
                         "add_layer",
                         "reuse_layer",
                         "remove_layer",
-                        "reuse_module",
-                        "remove_module",
                         "dsge_layer",
                         "macro_layer",
                         "train_longer"

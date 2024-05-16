@@ -110,8 +110,8 @@ def mutation(individual: Individual,
     add_layer_prob: float = mutation_config['add_layer']
     reuse_layer_prob: float = mutation_config['reuse_layer']
     remove_layer_prob: float = mutation_config['remove_layer']
-    reuse_module: float = mutation_config['reuse_module']
-    remove_module: float = mutation_config['remove_module']
+    reuse_module: Optional[float] = mutation_config.get('reuse_module')
+    remove_module: Optional[float] = mutation_config.get('remove_module')
     add_connection_prob: float = mutation_config['add_connection']
     remove_connection_prob: float = mutation_config['remove_connection']
     dsge_layer_prob: float = mutation_config['dsge_layer']
@@ -138,11 +138,11 @@ def mutation(individual: Individual,
     individual_copy.metrics = None
 
     # reuse module
-    if random.random() <= reuse_module:
+    if reuse_module is not None and random.random() <= reuse_module:
         individual_copy.reuse_module(grammar, generation)
 
     # remove module
-    if random.random() <= remove_module:
+    if remove_module is not None and random.random() <= remove_module:
         individual_copy.remove_module(grammar, generation)
 
     for m_idx, module in enumerate(individual_copy.modules):
