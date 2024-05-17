@@ -57,7 +57,7 @@
                 "evo_test": 0.1
             },
             "learning_type": "supervised",
-            "default_train_time": 300,
+            "default_train_time": 5,
             "augmentation": {
                 "train": {
                     "resize": {
