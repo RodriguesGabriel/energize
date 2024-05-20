@@ -1,6 +1,5 @@
 # ENERGIZE
-
-[![](https://img.shields.io/badge/Python-3.10-blue.svg)](https://www.python.org/downloads/) [![](https://img.shields.io/badge/PyTorch-2.2.0-blue.svg)](https://pytorch.org/get-started/previous-versions/) [![](https://img.shields.io/badge/cudatoolkit-12.1.0-blue.svg)](https://developer.nvidia.com/cuda-downloads/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.11220573.svg)](https://doi.org/10.5281/zenodo.11220573) [![](https://img.shields.io/badge/Python-3.10-blue.svg)](https://www.python.org/downloads/) [![](https://img.shields.io/badge/PyTorch-2.2.0-blue.svg)](https://pytorch.org/get-started/previous-versions/) [![](https://img.shields.io/badge/cudatoolkit-12.1.0-blue.svg)](https://developer.nvidia.com/cuda-downloads/)
 
 [![](https://img.shields.io/badge/License-Apache_2.0-green.svg)]()
 
@@ -133,6 +132,19 @@ docker exec -it energize_gpu0 bash
 - Nuno Lourenço (naml@dei.uc.pt)
 - Penousal Machado (machado@dei.uc.pt)
 
-## Citations
+
 
 ## Publications
+The methods used in these frameworks are mainly described in the following [paper](https://arxiv.org/abs/2401.17733):
+
+```
+Cortês, G., Lourenço, N., Machado, P. (2024). Towards Physical Plausibility in Neuroevolution Systems. In: Smith, S., Correia, J., Cintrano, C. (eds) Applications of Evolutionary Computation. EvoApplications 2024. Lecture Notes in Computer Science, vol 14635. Springer, Cham. https://doi.org/10.1007/978-3-031-56855-8_5
+```
+
+## Citations
+
+If you benefit from this project or make use of its code, concepts, or materials, please consider citing the following references.
+
+```
+Cortês, G., Lourenço, N., & Machado, P. (2024). ENERGIZE (v1.0). Zenodo. https://doi.org/10.5281/zenodo.11220573
+```
