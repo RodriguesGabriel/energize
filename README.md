@@ -23,7 +23,7 @@ It is an adaptation of the [EvoDENSS](https://github.com/adrianovinhas/evodenss/
 
 In order to run ENERGIZE, one needs to install the relevant dependencies. There are two ways to install the framework:
 
-### 1. Conda
+### Conda
 
 A conda environment can be created from an exported yml file that contains all the required dependences:
 
@@ -37,7 +37,7 @@ After the environment is created, just activate it in order to be able to run yo
 conda activate energize
 ```
 
-### 2. pip
+### pip
 
 Alternatively, you can use the `requirements.txt` file, but you will be on your own to install cudatoolkit and other libraries that might be required to enable GPU acceleration.
 
@@ -48,16 +48,6 @@ pip install -r requirements.txt
 **Note:** Installing ENERGIZE as a Python library is not yet supported
 
 ## Getting Started
-
-In order to run fast ENERGIZE, you need to run the energize module as a script:
-
-```
-python3 -u -m energize.main \
-    -d <dataset_name> \
-    -c <config_path> \
-    -g <grammar_path> \
-    -r <#run>
-```
 
 Example:
 
@@ -70,32 +60,6 @@ python3 -u -m energize.main \
     --gpu-enabled
 ```
 
-In case several seeds are needed to be run, that can be done with Bash:
-
-```
-bash batch.sh example/example_config.json example/energize.grammar fashion-mnist 5
-```
-
-Externally to the code itself, two main files are required to execute any run.
-
-1. A grammar that shapes the search space by setting the possibilities within each macro block.
-2. A configuration file that sets miscellaneous parameters that affect the outcome of the evolutionary run. These can se related with the evolutionary process itself, or the networks that are generated.
-
-<!-- ## Testing
-
-Unit tests can be executed via `pytest`:
-
-```
-pytest tests
-```
-
-In case one wants to do it with coverage report:
-
-```
-coverage run --source energize -m pytest -v tests
-coverage report -->
-<!-- ``` -->
-
 ## Command-line flags
 
 - `-c`/`--config-path`: Sets the path to the config file to be used;
@@ -104,23 +68,9 @@ coverage report -->
 - `-r`/`--run`: Identifies the run id and seed to be used;
 - `--gpu-enabled`: When used, it enables GPU processing.
 
-## Docker
-Build the image
-```
-docker build -t energize .
-```
 
-Run the container
-```
-docker run --gpus '"device=0"' --name energize_gpu0 -v $PWD:/home/ -it energize bash
-```
-
-Attach to the container
-```
-docker exec -it energize_gpu0 bash
-```
-
-<!-- ## Documentation -->
+## Documentation
+Please visit our [GitBook Documentation](https://bai-cisuc.gitbook.io/energize)
 
 <!-- ## Contributing -->
 
@@ -131,7 +81,6 @@ docker exec -it energize_gpu0 bash
 - Gabriel Cortês (cortes@dei.uc.pt)
 - Nuno Lourenço (naml@dei.uc.pt)
 - Penousal Machado (machado@dei.uc.pt)
-
 
 
 ## Publications
