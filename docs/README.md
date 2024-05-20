@@ -1,45 +1,38 @@
-# 👋 Welcome to A Product
+---
+layout:
+  title:
+    visible: true
+  description:
+    visible: false
+  tableOfContents:
+    visible: true
+  outline:
+    visible: true
+  pagination:
+    visible: true
+---
 
-{% hint style="info" %}
-**GitBook tip:** your product docs aren't just a reference of all your features! use them to encourage folks to perform certain actions and discover the value in your product.
-{% endhint %}
+# Overview
 
-## Overview
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.11220573.svg)](https://doi.org/10.5281/zenodo.11220573) [![](https://img.shields.io/badge/Python-3.10-blue.svg)](https://www.python.org/downloads/) [![](https://img.shields.io/badge/PyTorch-2.2.0-blue.svg)](https://pytorch.org/get-started/previous-versions/) [![](https://img.shields.io/badge/cudatoolkit-12.1.0-blue.svg)](https://developer.nvidia.com/cuda-downloads/)
 
-Here are a couple of example overviews from products with really great docs:
+ENERGIZE stands for **E**nergy-efficient **N**euro**E**volution fo**R** **G**eneral**IZE**d learning.
 
-> Loom is a video messaging tool that helps you get your message across through instantly shareable videos.
->
-> With Loom, you can record your camera, microphone, and desktop simultaneously. Your video is then instantly available to share through Loom's patented technology.
->
-> — From the [Loom Docs](https://support.loom.com/hc/en-us/articles/360002158057-What-is-Loom-)
+It is an adaptation of the [EvoDENSS](https://github.com/adrianovinhas/evodenss/) framework, itself drawing inspiration from [Fast-DENSER](https://github.com/fillassuncao/fast-denser3).
 
-> The Mailchimp Marketing API provides programmatic access to Mailchimp data and functionality, allowing developers to build custom features to do things like sync email activity and campaign analytics with their database, manage audiences and campaigns, and more.
->
-> — From the [Mailchimp Marketing API docs](https://mailchimp.com/developer/marketing/docs/fundamentals/)
+## Features
 
-## Quick links
+* feature1
+* feature2
 
-{% content-ref url="overview/what-we-do.md" %}
-[what-we-do.md](overview/what-we-do.md)
-{% endcontent-ref %}
+## Contact
 
-{% content-ref url="overview/our-features.md" %}
-[our-features.md](overview/our-features.md)
-{% endcontent-ref %}
+* Gabriel Cortês ([cortes@dei.uc.pt](mailto:cortes@dei.uc.pt))
+* Nuno Lourenço ([naml@dei.uc.pt](mailto:naml@dei.uc.pt))
+* Penousal Machado ([machado@dei.uc.pt](mailto:machado@dei.uc.pt))
 
-## Get Started
+## Publications
 
-We've put together some helpful guides for you to get setup with our product quickly and easily.
-
-{% content-ref url="fundamentals/getting-set-up/" %}
-[getting-set-up](fundamentals/getting-set-up/)
-{% endcontent-ref %}
-
-{% content-ref url="fundamentals/getting-set-up/setting-permissions.md" %}
-[setting-permissions.md](fundamentals/getting-set-up/setting-permissions.md)
-{% endcontent-ref %}
-
-{% content-ref url="fundamentals/getting-set-up/inviting-members.md" %}
-[inviting-members.md](fundamentals/getting-set-up/inviting-members.md)
+{% content-ref url="publications-and-citation.md" %}
+[publications-and-citation.md](publications-and-citation.md)
 {% endcontent-ref %}

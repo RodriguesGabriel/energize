@@ -1,24 +1,27 @@
 # Table of contents
 
-* [👋 Welcome to A Product](README.md)
+* [Overview](README.md)
+* [Acknowledgments](acknowledgments.md)
 
-## Overview
+## Getting Started
 
-* [💡 What we do](overview/what-we-do.md)
-* [✨ Our Features](overview/our-features.md)
+* [Prerequisites](getting-started/prerequisites.md)
+* [Installation](getting-started/installation.md)
+* [Docker](getting-started/docker.md)
 
-## Product Guides
+## Usage
 
-* [📪 Making a post](product-guides/making-a-post.md)
-* [📎 Understanding Projects](product-guides/understanding-projects.md)
+* [Basic usage](usage/basic-usage.md)
+* [Configuration](usage/configuration.md)
 
-## Fundamentals
+## Features
 
-* [🛠️ Getting set up](fundamentals/getting-set-up/README.md)
-  * [📝 Setting permissions](fundamentals/getting-set-up/setting-permissions.md)
-  * [🧑 Inviting Members](fundamentals/getting-set-up/inviting-members.md)
+* [Power Measurement](features/power-measurement.md)
+* [Fitness Functions](features/fitness-functions.md)
+* [Model Splitting](features/model-splitting.md)
+* [Module Reuse](features/module-reuse.md)
 
-## Use Cases
+***
 
-* [🎨 For Designers](use-cases/for-designers.md)
-* [🖥️ For Developers](use-cases/for-developers.md)
+* [Contributing](contributing.md)
+* [Publications & Citation](publications-and-citation.md)
