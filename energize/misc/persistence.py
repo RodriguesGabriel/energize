@@ -52,7 +52,7 @@ class RestoreCheckpoint:
             with open(checkpoint_path, "rb") as handle_checkpoint:
                 checkpoint: Checkpoint = dill.load(handle_checkpoint)
             Module.history = checkpoint.modules_history
-            if config["energize"] is not None:
+            if config.get('energize', None) is not None:
                 checkpoint.evaluator.power_config = PowerConfig(
                     config['energize'])
             return checkpoint

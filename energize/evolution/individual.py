@@ -291,8 +291,7 @@ class Individual:
             reuse_parent_weights = False
 
         allocated_train_time: float = self.total_allocated_train_time - self.current_time
-        logger.info(
-            f"-----> Starting evaluation for individual {self.id} for {allocated_train_time} secs")
+        logger.info("-----> Starting evaluation for individual %d for %d secs", self.id, allocated_train_time)
 
         first_individual_overall = generation == 0 and self.id == 0
 
