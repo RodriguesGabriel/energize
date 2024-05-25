@@ -68,12 +68,18 @@ def create_evaluator(dataset_name: str,
 
     fitness_metric_name: Optional[FitnessMetricName] = None
     fitness_metric_data: Optional[int] = None
+    fitness_function_params: Optional[list[dict]] = None
+    selection: Optional[dict] = None
+
     if 'fitness_metric' in evo_params:
         fitness_metric_name, fitness_metric_data = FitnessMetricName.new(
             evo_params['fitness_metric'])
-
-    fitness_function_params: Optional[list[dict]] = evo_params[
-        'fitness_function'] if 'fitness_function' in evo_params else None
+    elif 'fitness_function' in evo_params:
+        fitness_function_params = evo_params['fitness_function']
+    elif 'selection' in evo_params:
+        selection = evo_params['selection']
+        fitness_metric_name, fitness_metric_data = FitnessMetricName.new(
+            'accuracy_0')
 
     train_transformer: Optional[BaseTransformer]
     test_transformer: Optional[BaseTransformer]
@@ -105,6 +111,7 @@ def create_evaluator(dataset_name: str,
                                fitness_metric_name,
                                fitness_metric_data,
                                fitness_function_params,
+                               selection,
                                run,
                                user_chosen_device,
                                power_config,
@@ -119,6 +126,7 @@ class BaseEvaluator(ABC):
                  fitness_metric_name: Optional[FitnessMetricName],
                  fitness_metric_data: Optional[int],
                  fitness_function_params: Optional[list[dict]],
+                 selection: Optional[dict],
                  seed: int,
                  user_chosen_device: Device,
                  dataset: Dict[DatasetType, Subset],
@@ -131,12 +139,13 @@ class BaseEvaluator(ABC):
             dataset : str
                 dataset to be loaded
         """
-        assert fitness_metric_name is not None or fitness_function_params is not None
+        assert fitness_metric_name is not None or fitness_function_params is not None or selection is not None
 
         self.fitness_metric_name: Optional[FitnessMetricName] = fitness_metric_name
         self.fitness_metric_data: Optional[int] = fitness_metric_data
         self.fitness_function_params: Optional[list[dict]
                                                ] = fitness_function_params
+        self.selection: Optional[dict] = selection
         self.seed: int = seed
         self.user_chosen_device: Device = user_chosen_device
         self.dataset = dataset
@@ -270,6 +279,7 @@ class LegacyEvaluator(BaseEvaluator):
                  fitness_metric_name: Optional[FitnessMetricName],
                  fitness_metric_data: Optional[int],
                  fitness_function_params: Optional[list[dict]],
+                 selection: Optional[dict],
                  seed: int,
                  user_chosen_device: Device,
                  power_config: Optional[PowerConfig],
@@ -292,7 +302,7 @@ class LegacyEvaluator(BaseEvaluator):
                                                                       enable_stratify=True,
                                                                       proportions=ProportionsFloat(
                                                                           data_splits))
-        super().__init__(fitness_metric_name, fitness_metric_data, fitness_function_params, seed,
+        super().__init__(fitness_metric_name, fitness_metric_data, fitness_function_params, selection, seed,
                          user_chosen_device, dataset, power_config)
 
     def evaluate(self,
@@ -434,7 +444,6 @@ class LegacyEvaluator(BaseEvaluator):
                         }
                         for i, fm in enumerate(fitness_metric[1:]):
                             power_data['test'][f"partition_{i}"] = fm.power_data
-
                     else:
                         power_data['test'] = fitness_metric.power_data
                 else:
@@ -475,7 +484,6 @@ class LegacyEvaluator(BaseEvaluator):
             if self.fitness_function_params is not None:
                 fitness_function = CustomFitnessFunction(
                     self.fitness_function_params, power_config=self.power_config)
-
                 pre_computed = {}
                 if accuracy is not None:
                     if self.power_config and self.power_config["model_partition"]:
@@ -497,6 +505,9 @@ class LegacyEvaluator(BaseEvaluator):
                 fitness_value = Fitness(fitness_function.compute_fitness(
                     torch_model, test_loader, device, pre_computed), type(fitness_function))
             else:
+                if self.selection is not None and isinstance(fitness_metric_value, tuple):
+                    fitness_metric_value = fitness_metric_value[0]
+                    fitness_metric = fitness_metric[0]
                 fitness_value = Fitness(
                     fitness_metric_value, type(fitness_metric))
 

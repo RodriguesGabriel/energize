@@ -1,0 +1,109 @@
+{
+    "checkpoints_path": "./experiments/example_lexicase",
+    "statistics_format": "json",
+    "energize": {
+        "measure_power": {
+            "train": true,
+            "test": true,
+            "num_measurements_test": 30,
+            "modules": true
+        },
+        "model_partition": true,
+        "model_partition_n": 2,
+        "ensure_gpu_exclusivity": false
+    },
+    "evolutionary": {
+        "generations": 150,
+        "lambda": 4,
+        "max_epochs": 1000000,
+        "mutation": {
+            "add_connection": 0.0,
+            "remove_connection": 0.0,
+            "add_layer": 0.25,
+            "reuse_layer": 0.15,
+            "remove_layer": 0.25,
+            "reuse_module": 0.15,
+            "remove_module": 0.25,
+            "dsge_layer": 0.15,
+            "macro_layer": 0.3,
+            "train_longer": 0.2
+        },
+        "track_mutations": true,
+        "selection": {
+            "method": "lexicase",
+            "metrics": [
+                {
+                    "name": "accuracy_0",
+                    "objective": "maximize"
+                },
+                {
+                    "name": "accuracy_1",
+                    "objective": "maximize"
+                },
+                {
+                    "name": "power_0",
+                    "objective": "minimize"
+                },
+                {
+                    "name": "power_1",
+                    "objective": "minimize"
+                }
+            ]
+        }
+    },
+    "network": {
+        "architecture": {
+            "reuse_layer": 0.7,
+            "macro_structure": [
+                "learning",
+                "model_partition"
+            ],
+            "output": "softmax",
+            "modules": [
+                {
+                    "name": "features",
+                    "network_structure_init": [
+                        1,2,3,4,5
+                    ],
+                    "network_structure": [
+                        0,
+                        50
+                    ],
+                    "levels_back": 1
+                },
+                {
+                    "name": "classification",
+                    "network_structure_init": [
+                        1,2,3,4,5
+                    ],
+                    "network_structure": [
+                        0,
+                        25
+                    ],
+                    "levels_back": 1
+                }
+            ]
+        },
+        "learning": {
+            "data_splits": {
+                "evo_train": 0.7,
+                "evo_validation": 0.2,
+                "evo_test": 0.1
+            },
+            "learning_type": "supervised",
+            "default_train_time": 300,
+            "augmentation": {
+                "train": {
+                    "resize": {
+                        "size": 32
+                    }
+                },
+                "test": {
+                    "resize": {
+                        "size": 32
+                    }
+                }
+            }
+        }
+    }
+}

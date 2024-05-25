@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, astuple, dataclass, fields
 from typing import Any, Dict, Iterator, List, Optional
 
+from energize.misc.enums import FitnessMetricName
 from energize.misc.fitness_metrics import Fitness
 
 
@@ -38,6 +39,29 @@ class EvaluationMetrics:
 
     def list_fields(self) -> List[str]:
         return tuple(field.name for field in fields(self))
+
+    def ordered_list(self, metrics) -> List[float]:
+        l = []
+        for m in metrics:
+            m, value = FitnessMetricName.new(m)
+            if m in (FitnessMetricName.ACCURACY, FitnessMetricName.ACCURACY_N):
+                m = self.accuracy
+                if value is not None:
+                    m = m[value]
+            elif m in (FitnessMetricName.POWER, FitnessMetricName.POWER_N):
+                m = self.power["test"]
+                if value is not None:
+                    m = m[f"partition_{value}"]
+                else:
+                    m = m["full"]
+                if m in (FitnessMetricName.ENERGY, FitnessMetricName.ENERGY_N):
+                    m = m["energy"]["mean"]
+                else:
+                    m = m["power"]["mean"]
+            else:
+                raise ValueError(f"Unknown metric {m}")
+            l.append(m)
+        return l
 
     def __iter__(self) -> Iterator[Any]:
         data = list(astuple(self))

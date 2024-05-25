@@ -266,6 +266,33 @@
                             "weight"
                         ]
                     }
+                },
+                "selection": {
+                    "type": "object",
+                    "properties": {
+                        "method": {
+                            "enum": [
+                                "lexicase"
+                            ]
+                        },
+                        "metrics": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "metric": {
+                                        "$ref": "#/$defs/metrics"
+                                    },
+                                    "objective": {
+                                        "enum": [
+                                            "maximize",
+                                            "minimize"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             },
             "additionalProperties": false,
@@ -285,6 +312,11 @@
                 {
                     "required": [
                         "fitness_function"
+                    ]
+                },
+                {
+                    "required": [
+                        "selection"
                     ]
                 }
             ]

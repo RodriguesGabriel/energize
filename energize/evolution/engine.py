@@ -1,7 +1,7 @@
 import logging
 import random
 from copy import deepcopy
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 import torch
@@ -24,7 +24,6 @@ def evolve(run: int,
 
     logger.info("Performing generation: %d", generation)
     population: List[Individual]
-    population_fits: List[Fitness]
     if generation == 0:
         logger.info("Creating the initial population")
 
@@ -53,19 +52,16 @@ def evolve(run: int,
             ]
 
         # set initial population variables and evaluate population
-        population_fits = []
         for idx, ind in enumerate(population):
             ind.current_time = 0
             ind.num_epochs = 0
             ind.total_training_time_spent = 0.0
             ind.total_allocated_train_time = config['network']['learning']['default_train_time']
             ind.id = idx
-            population_fits.append(
-                ind.evaluate(grammar,
-                             checkpoint.evaluator,
-                             generation,
-                             persistence.build_individual_path(config['checkpoints_path'], run, generation, idx))
-            )
+            ind.evaluate(grammar,
+                         checkpoint.evaluator,
+                         generation,
+                         persistence.build_individual_path(config['checkpoints_path'], run, generation, idx))
 
     else:
         assert checkpoint.parent is not None
@@ -97,27 +93,30 @@ def evolve(run: int,
         population[0].metrics = None
 
         # evaluate population
-        population_fits = []
         for idx, ind in enumerate(population):
-            population_fits.append(
-                ind.evaluate(
-                    grammar,
-                    checkpoint.evaluator,
-                    generation,
-                    persistence.build_individual_path(
-                        config['checkpoints_path'], run, generation, idx),
-                    persistence.build_individual_path(config['checkpoints_path'],
-                                                      run,
-                                                      generation-1,
-                                                      checkpoint.parent.id),
-                )
+            ind.evaluate(
+                grammar,
+                checkpoint.evaluator,
+                generation,
+                persistence.build_individual_path(
+                    config['checkpoints_path'], run, generation, idx),
+                persistence.build_individual_path(config['checkpoints_path'],
+                                                  run,
+                                                  generation-1,
+                                                  checkpoint.parent.id),
             )
 
-    logger.info("Selecting the fittest individual")
+    selection_method: str = 'fittest'
+    selection_method_params: Optional[dict] = None
+    if 'selection' in config['evolutionary']:
+        selection_method = config['evolutionary']['selection']['method']
+        selection_method_params = config['evolutionary']['selection']
+
     # select parent
-    parent = operators.select_fittest(
+    parent = operators.select(
         population,
-        population_fits,
+        selection_method,
+        selection_method_params,
         grammar,
         checkpoint.evaluator,
         run,
@@ -126,7 +125,7 @@ def evolve(run: int,
         config['network']['learning']["default_train_time"])
     assert parent.fitness is not None
 
-    logger.info(f"Fitnesses: {population_fits}")
+    logger.info("Fitnesses: %s", str([ind.fitness for ind in population]))
 
     # update best individual
     best_individual_path: str = persistence.build_individual_path(config['checkpoints_path'],
@@ -142,7 +141,7 @@ def evolve(run: int,
     logger.info("Generation best test accuracy: %f", best_test_acc)
 
     logger.info("Best fitness of generation %d: %f",
-                generation, max(population_fits).value)
+                generation, max(ind.fitness for ind in population).value)
     logger.info("Best overall fitness: %f\n\n\n",
                 checkpoint.best_fitness.value)
 

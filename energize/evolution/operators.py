@@ -176,41 +176,78 @@ def mutation(individual: Individual,
     }
     # macro level mutation
     for rule_idx, macro_rule in enumerate(individual_copy.macro_rules):
-        requires_mutation, requires_mutation_reason = individual_copy.requires_dsge_mutation_macro(rule_idx, macro_rule)
+        requires_mutation, requires_mutation_reason = individual_copy.requires_dsge_mutation_macro(
+            rule_idx, macro_rule)
         if random.random() <= macro_layer_prob or requires_mutation:
             old_macro_phenotype = grammar.decode(
                 macro_rule, individual_copy.macro[rule_idx])
-            mutation_dsge(individual_copy.macro[rule_idx], grammar, dynamic_bounds)
+            mutation_dsge(
+                individual_copy.macro[rule_idx], grammar, dynamic_bounds)
             track_mutation_data = {
                 "from": old_macro_phenotype,
                 "to": grammar.decode(macro_rule, individual_copy.macro[rule_idx])
             }
             if requires_mutation:
                 track_mutation_data["observations"] = requires_mutation_reason
-            individual_copy.track_mutation(MutationType.DSGE_MACRO, generation, track_mutation_data)
+            individual_copy.track_mutation(
+                MutationType.DSGE_MACRO, generation, track_mutation_data)
             logger.info(
                 "Individual %d is going to have a macro mutation", individual_copy.id)
     return individual_copy
 
 
-def select_fittest(population: List[Individual],
-                   population_fits: List['Fitness'],
-                   grammar: Grammar,
-                   cnn_eval: 'BaseEvaluator',
-                   run: int,
-                   generation: int,
-                   checkpoint_base_path: str,
-                   default_train_time: int) -> Individual:  # pragma: no cover
+# Based on T. Helmuth, L. Spector and J. Matheson, "Solving Uncompromising Problems With Lexicase Selection," in IEEE Transactions on Evolutionary Computation
+def _lexicase_selection(population: List[Individual], metrics: List[dict]) -> Individual:
+    candidates = [ind for ind in population if ind.metrics.is_valid_solution]
+    cases = list(range(len(metrics)))
+    random.shuffle(cases)
+
+    # change to numpy
+    while len(cases) > 0 and len(candidates) > 1:
+        f = max if metrics[cases[0]]['objective'] == 'maximize' else min
+        candidates_values = [ind.metrics.ordered_list([m['name'] for m in metrics])[
+            cases[0]] for ind in candidates]
+        best_val = f(candidates_values)
+        candidates = [
+            x for i, x in enumerate(candidates) if candidates_values[i] == best_val]
+        logger.info("[Lexicase selection](metric: %s, objective: %s) -- %d candidates left.",
+                    metrics[cases[0]]['name'], metrics[cases[0]]['objective'], len(candidates))
+        cases.pop(0)
+
+    return random.choice(candidates)
+
+
+def select(population: List[Individual],
+           method: str,
+           method_params: Optional[dict],
+           grammar: Grammar,
+           cnn_eval: 'BaseEvaluator',
+           run: int,
+           generation: int,
+           checkpoint_base_path: str,
+           default_train_time: int) -> Individual:
 
     # Get best individual just according to fitness
     elite: Individual
     parent_10min: Individual
-    idx_max: int = np.argmax(population_fits)  # type: ignore
-    parent: Individual = population[idx_max]
+
+    parent: Individual
+    idx_max: int
+    if method == 'fittest':
+        idx_max = np.argmax([ind.fitness for ind in population])
+        parent = population[idx_max]
+    elif method == 'lexicase':
+        parent = _lexicase_selection(population, method_params['metrics'])
+        assert parent in population
+        idx_max = population.index(parent)
+    else:
+        raise NotImplementedError(f"Method {method} not implemented")
+
     assert parent.fitness is not None
-    logger.info(f"Parent: idx: {idx_max}, id: {parent.id}")
-    logger.info(f"Training times: {[ind.current_time for ind in population]}")
-    logger.info(f"ids: {[ind.id for ind in population]}")
+    logger.info("Parent: idx: %d, id: %d", idx_max, parent.id)
+    logger.info("Training times: %s", str(
+        [ind.current_time for ind in population]))
+    logger.info("ids: %s", str([ind.id for ind in population]))
 
     # however if the parent is not the elite, and the parent is trained for longer, the elite
     # is granted the same evaluation time.
@@ -219,7 +256,7 @@ def select_fittest(population: List[Individual],
         if idx_max != 0 and population[0].total_allocated_train_time > default_train_time and \
                 population[0].total_allocated_train_time < parent.total_allocated_train_time:
             logger.info(
-                "Elite train was extended, since parent was trained for longer")
+                "Elite train was extended since parent was trained for longer")
             retrain_elite = True
             elite = population[0]
             assert elite.fitness is not None
@@ -230,17 +267,15 @@ def select_fittest(population: List[Individual],
                            persistence.build_individual_path(
                                checkpoint_base_path, run, generation, elite.id),
                            persistence.build_individual_path(checkpoint_base_path, run, generation, elite.id))
-            population_fits[0] = elite.fitness
 
-        min_train_time = min([ind.current_time for ind in population])
+        min_train_time = min(ind.current_time for ind in population)
 
         # also retrain the best individual that is trained just for the default time
         retrain_10min = False
         if min_train_time < parent.total_allocated_train_time:
             ids_10min = [ind.current_time ==
                          min_train_time for ind in population]
-            logger.info(
-                f"Individuals trained for the minimum time: {ids_10min}")
+            logger.info("Individuals trained for the minimum time: %s", str(ids_10min))
             if sum(ids_10min) > 0:
                 retrain_10min = True
                 indvs_10min = np.array(population)[ids_10min]
@@ -263,9 +298,6 @@ def select_fittest(population: List[Individual],
                                       generation,
                                       path,
                                       path)
-
-                population_fits[population.index(
-                    parent_10min)] = parent_10min.fitness
 
         # select the fittest among all retrains and the initial parent
         if retrain_elite:
