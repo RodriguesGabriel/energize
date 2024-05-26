@@ -158,8 +158,10 @@ class BaseEvaluator(ABC):
         if metric_name.value not in FitnessMetricName.enum_values():
             raise ValueError(
                 f"Invalid fitness metric retrieved from the config: [{metric_name}]")
-        if metric_name is FitnessMetricName.ACCURACY:
+        if metric_name in (FitnessMetricName.ACCURACY, FitnessMetricName.ACCURACY_N):
             return AccuracyMetric.worst_fitness()
+        if metric_name in (FitnessMetricName.POWER, FitnessMetricName.POWER_N):
+            return PowerMetric.worst_fitness()
         if metric_name is FitnessMetricName.LOSS:
             return LossMetric.worst_fitness()
         raise ValueError("Invalid fitness metric")
