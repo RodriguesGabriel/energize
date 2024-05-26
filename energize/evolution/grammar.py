@@ -48,6 +48,8 @@ class Attribute(Generic[T]):
             raise ValueError(
                 f"Attribute [{symbol_name}] of type [{self.var_type}] not in bounds object.")
         self.min_value, self.max_value = bounds[symbol_name]
+        if self.min_value == self.max_value == 0:
+            self.max_value = 1
 
     def __repr__(self) -> str:
         return f"Attribute(num_values={self.num_values}," + \
