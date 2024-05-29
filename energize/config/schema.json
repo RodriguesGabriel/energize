@@ -272,7 +272,8 @@
                     "properties": {
                         "method": {
                             "enum": [
-                                "lexicase"
+                                "lexicase",
+                                "lexicase-auto-epsilon"
                             ]
                         },
                         "metrics": {

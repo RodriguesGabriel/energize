@@ -196,13 +196,14 @@ def mutation(individual: Individual,
     return individual_copy
 
 
-# Based on T. Helmuth, L. Spector and J. Matheson, "Solving Uncompromising Problems With Lexicase Selection," in IEEE Transactions on Evolutionary Computation
+# Based on T. Helmuth, L. Spector and J. Matheson,
+# "Solving Uncompromising Problems With Lexicase Selection,"
+# in IEEE Transactions on Evolutionary Computation
 def _lexicase_selection(population: List[Individual], metrics: List[dict]) -> Individual:
     candidates = [ind for ind in population if ind.metrics.is_valid_solution]
     cases = list(range(len(metrics)))
     random.shuffle(cases)
 
-    # change to numpy
     while len(cases) > 0 and len(candidates) > 1:
         f = max if metrics[cases[0]]['objective'] == 'maximize' else min
         candidates_values = [ind.metrics.ordered_list([m['name'] for m in metrics])[
@@ -212,6 +213,44 @@ def _lexicase_selection(population: List[Individual], metrics: List[dict]) -> In
             x for i, x in enumerate(candidates) if candidates_values[i] == best_val]
         logger.info("[Lexicase selection](metric: %s, objective: %s) -- %d candidates left.",
                     metrics[cases[0]]['name'], metrics[cases[0]]['objective'], len(candidates))
+        cases.pop(0)
+
+    return random.choice(candidates)
+
+# Based on William La Cava, Lee Spector, and Kourosh Danai. 2016.
+# Epsilon-Lexicase Selection for Regression. In Proceedings of the
+# Genetic and Evolutionary Computation Conference 2016 (GECCO '16)
+
+
+def _lexicase_auto_epsilon_selection(population: List[Individual], metrics: List[dict]) -> Individual:
+    candidates = [ind for ind in population if ind.metrics.is_valid_solution]
+    cases = list(range(len(metrics)))
+    random.shuffle(cases)
+
+    while len(cases) > 0 and len(candidates) > 1:
+        candidates_values = [ind.metrics.ordered_list([m['name'] for m in metrics])[
+            cases[0]] for ind in candidates]
+
+        median_val = np.median(candidates_values, )
+        median_abs_dev = np.median(
+            [(abs(x - median_val)) for x in candidates_values])
+
+        log: str
+        if metrics[cases[0]]['objective'] == 'maximize':
+            best_val = max(candidates_values)
+            min_val_to_survive = best_val - median_abs_dev
+            candidates = [x for i, x in enumerate(
+                candidates) if candidates_values[i] >= min_val_to_survive]
+            log = f"best:{best_val:.4f}, min_to_survive:{min_val_to_survive:.4f}"
+        else:
+            best_val = min(candidates_values)
+            max_val_to_survive = best_val + median_abs_dev
+            candidates = [x for i, x in enumerate(
+                candidates) if candidates_values[i] <= max_val_to_survive]
+            log = f"best:{best_val:.4f}, max_to_survive:{max_val_to_survive:.4f}"
+
+        logger.info("[auto-ε-Lexicase selection](metric: %s, objective: %s, %s) -- %d candidates left.",
+                    metrics[cases[0]]['name'], metrics[cases[0]]['objective'], log, len(candidates))
         cases.pop(0)
 
     return random.choice(candidates)
@@ -238,6 +277,10 @@ def select(population: List[Individual],
         parent = population[idx_max]
     elif method == 'lexicase':
         parent = _lexicase_selection(population, method_params['metrics'])
+        assert parent in population
+        idx_max = population.index(parent)
+    elif method == 'lexicase-auto-epsilon':
+        parent = _lexicase_auto_epsilon_selection(population, method_params['metrics'])
         assert parent in population
         idx_max = population.index(parent)
     else:
@@ -275,7 +318,8 @@ def select(population: List[Individual],
         if min_train_time < parent.total_allocated_train_time:
             ids_10min = [ind.current_time ==
                          min_train_time for ind in population]
-            logger.info("Individuals trained for the minimum time: %s", str(ids_10min))
+            logger.info(
+                "Individuals trained for the minimum time: %s", str(ids_10min))
             if sum(ids_10min) > 0:
                 retrain_10min = True
                 indvs_10min = np.array(population)[ids_10min]
