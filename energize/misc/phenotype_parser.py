@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional, Set, Tuple, cast
 from energize.misc.enums import Entity, LayerType, OptimiserType
 from energize.misc.utils import InputLayerId, LayerId
 
+import torch
+
 
 class Layer:
     def __init__(self,
@@ -49,6 +51,7 @@ class ParsedNetwork:
     layers: List[Layer]
     layers_connections: Dict[LayerId, List[InputLayerId]]
     model_partition_points: Optional[int] = None
+    data_type: Optional[torch.dtype] = None
 
     # It gets the layer idx that corresponds to the final/output layer
     def get_output_layer_idx(self) -> List[LayerId]:
@@ -86,6 +89,14 @@ class Optimiser:
         return False
 
 
+DATA_TYPES = {
+    "float16": torch.float16,
+    "bfloat16": torch.bfloat16,
+    "float32": torch.float32,
+    "float64": torch.float64
+}
+
+
 def parse_phenotype(phenotype: str) -> Tuple[ParsedNetwork, Optimiser]:
     # ignore modules separator
     phenotype = phenotype.replace("| ", "")
@@ -97,6 +108,7 @@ def parse_phenotype(phenotype: str) -> Tuple[ParsedNetwork, Optimiser]:
     layers_connections: Dict[LayerId, List[InputLayerId]] = {}
     layer_id: int = 0
     model_partition_point: Optional[int] = None
+    data_type: Optional[torch.dtype] = None
     while phenotype_as_list:
         entity: Entity = Entity(phenotype_as_list[0][0])
         name: str = phenotype_as_list[0][1]
@@ -122,7 +134,9 @@ def parse_phenotype(phenotype: str) -> Tuple[ParsedNetwork, Optimiser]:
                                   optimiser_parameters=entity_parameters)
         elif entity == Entity.MODEL_PARTITION:
             model_partition_point = int(entity_parameters["partition_point"])
+        elif entity == Entity.DATA_TYPE:
+            data_type = DATA_TYPES[entity_parameters["data_type"]]
         else:
             raise ValueError(f"Unknown entity: {entity}")
-    return ParsedNetwork(layers, layers_connections, model_partition_point), \
+    return ParsedNetwork(layers, layers_connections, model_partition_point, data_type), \
         optimiser

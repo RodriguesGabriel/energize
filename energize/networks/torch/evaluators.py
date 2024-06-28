@@ -334,6 +334,8 @@ class LegacyEvaluator(BaseEvaluator):
             model_builder: ModelBuilder = ModelBuilder(
                 parsed_network, device, Size(list(input_size)))
             torch_model = model_builder.assemble_network(type(self))
+            if parsed_network.data_type is not None:
+                torch_model = torch_model.to(parsed_network.data_type)
 
             if reuse_parent_weights \
                     and parent_dir is not None \
@@ -393,11 +395,16 @@ class LegacyEvaluator(BaseEvaluator):
                                                               learning_params.early_stop,
                                                               self.power_config))
 
-            if self.power_config and self.power_config.get("model_partition"):
-                trainer.multi_output_train(
-                    self.power_config["model_partition_n"])
+            if train_time == 0:
+                # to save the model
+                trainer._call_on_train_begin_callbacks()
+                trainer._call_on_train_end_callbacks()
             else:
-                trainer.train()
+                if self.power_config and self.power_config.get("model_partition"):
+                    trainer.multi_output_train(
+                        self.power_config["model_partition_n"])
+                else:
+                    trainer.train()
 
             power_data = {}
             # get training power measurements

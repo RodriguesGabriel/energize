@@ -180,6 +180,8 @@ class PowerMetric(FitnessMetric):
         self.power_data: Optional[dict] = None
 
     def compute_metric(self, model: nn.Module, data_loader: DataLoader, device: Device) -> dict:
+        data_type = next(model.parameters()).dtype
+
         model.eval()
 
         n = self.power_config["measure_power"]["num_measurements_test"]
@@ -191,8 +193,8 @@ class PowerMetric(FitnessMetric):
             self.power_config.meter.start(tag="test")
             with torch.no_grad():
                 for data in data_loader:
-                    inputs, _ = data[0].to(device.value, non_blocking=True), \
-                        data[1].to(device.value, non_blocking=True)
+                    inputs, _ = data[0].to(device.value, non_blocking=True).to(data_type), \
+                        data[1].to(device.value, non_blocking=True).to(data_type)
                     model(inputs)
             # stop measuring power usage
             self.power_config.meter.stop()

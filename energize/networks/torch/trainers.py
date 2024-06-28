@@ -130,6 +130,8 @@ class Trainer:
     def multi_output_train(self, n_outputs: int) -> None:
         assert n_outputs > 1
 
+        data_type = next(self.model.parameters()).dtype
+
         logging.info("Initiating supervised training for multiple outputs")
         self.loss_values = {
             "train_loss": [],
@@ -154,8 +156,8 @@ class Trainer:
                 total_loss = torch.zeros(
                     size=(n_outputs,), device=self.device.value)
                 for i, data in enumerate(self.train_data_loader, 0):
-                    inputs, labels = data[0].to(self.device.value, non_blocking=True), \
-                        data[1].to(self.device.value, non_blocking=True)
+                    inputs, labels = data[0].to(self.device.value, non_blocking=True).to(data_type), \
+                        data[1].to(self.device.value, non_blocking=True).to(data_type)
                     if isinstance(self.optimiser, LARS):
                         self.optimiser.adjust_learning_rate(
                             n_batches_train, self.n_epochs, i)
@@ -185,9 +187,9 @@ class Trainer:
                         total_loss = torch.zeros(
                             size=(n_outputs,), device=self.device.value)
                         for i, data in enumerate(self.validation_data_loader, 0):
-                            inputs, labels = data[0].to(self.device.value, non_blocking=True), \
+                            inputs, labels = data[0].to(self.device.value, non_blocking=True).to(data_type), \
                                 data[1].to(self.device.value,
-                                           non_blocking=True)
+                                           non_blocking=True).to(data_type)
                             outputs = self.model(inputs)
                             for i, output in enumerate(outputs):
                                 total_loss[i] += self.loss_function(

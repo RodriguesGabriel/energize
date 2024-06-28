@@ -25,6 +25,7 @@ class Entity(ExtendedEnum):
     LAYER = "layer"
     OPTIMISER = "learning"
     MODEL_PARTITION = "model_partition"
+    DATA_TYPE = "data_type"
 
 
 @unique
