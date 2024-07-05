@@ -135,7 +135,7 @@ def parse_phenotype(phenotype: str) -> Tuple[ParsedNetwork, Optimiser]:
         elif entity == Entity.MODEL_PARTITION:
             model_partition_point = int(entity_parameters["partition_point"])
         elif entity == Entity.DATA_TYPE:
-            data_type = DATA_TYPES[entity_parameters["data_type"]]
+            data_type = DATA_TYPES[name]
         else:
             raise ValueError(f"Unknown entity: {entity}")
     return ParsedNetwork(layers, layers_connections, model_partition_point, data_type), \

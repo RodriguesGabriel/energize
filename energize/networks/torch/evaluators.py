@@ -328,6 +328,7 @@ class LegacyEvaluator(BaseEvaluator):
         os.makedirs(model_saving_dir, exist_ok=True)
 
         parsed_network, optimiser = parse_phenotype(phenotype)
+
         try:
             input_size: Tuple[int, int,
                               int] = DATASETS_INFO[self.dataset_name]["expected_input_dimensions"]

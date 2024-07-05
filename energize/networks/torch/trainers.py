@@ -157,7 +157,7 @@ class Trainer:
                     size=(n_outputs,), device=self.device.value)
                 for i, data in enumerate(self.train_data_loader, 0):
                     inputs, labels = data[0].to(self.device.value, non_blocking=True).to(data_type), \
-                        data[1].to(self.device.value, non_blocking=True).to(data_type)
+                        data[1].to(self.device.value, non_blocking=True)
                     if isinstance(self.optimiser, LARS):
                         self.optimiser.adjust_learning_rate(
                             n_batches_train, self.n_epochs, i)
@@ -189,7 +189,7 @@ class Trainer:
                         for i, data in enumerate(self.validation_data_loader, 0):
                             inputs, labels = data[0].to(self.device.value, non_blocking=True).to(data_type), \
                                 data[1].to(self.device.value,
-                                           non_blocking=True).to(data_type)
+                                           non_blocking=True)
                             outputs = self.model(inputs)
                             for i, output in enumerate(outputs):
                                 total_loss[i] += self.loss_function(

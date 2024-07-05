@@ -92,13 +92,14 @@ class AccuracyMetric(FitnessMetric):
         super().__init__(batch_size, loss_function)
 
     def compute_metric(self, model: nn.Module, data_loader: DataLoader, device: Device) -> float:
+        data_type = next(model.parameters()).dtype
         model.eval()
         correct_guesses: int = 0
         size: int = 0
         # since we're not training, we don't need to calculate the gradients for our outputs
         with torch.no_grad():
             for data in data_loader:
-                inputs, labels = data[0].to(device.value, non_blocking=True), \
+                inputs, labels = data[0].to(device.value, non_blocking=True).to(data_type), \
                     data[1].to(device.value, non_blocking=True)
                 outputs = model(inputs)
                 if isinstance(outputs, tuple):
@@ -181,7 +182,7 @@ class PowerMetric(FitnessMetric):
 
     def compute_metric(self, model: nn.Module, data_loader: DataLoader, device: Device) -> dict:
         data_type = next(model.parameters()).dtype
-
+        
         model.eval()
 
         n = self.power_config["measure_power"]["num_measurements_test"]
@@ -194,7 +195,7 @@ class PowerMetric(FitnessMetric):
             with torch.no_grad():
                 for data in data_loader:
                     inputs, _ = data[0].to(device.value, non_blocking=True).to(data_type), \
-                        data[1].to(device.value, non_blocking=True).to(data_type)
+                        data[1].to(device.value, non_blocking=True)
                     model(inputs)
             # stop measuring power usage
             self.power_config.meter.stop()
