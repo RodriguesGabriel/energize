@@ -92,7 +92,7 @@ def main(run: int,
         random.setstate(checkpoint.random_state)
         np.random.set_state(checkpoint.numpy_random_state)
         torch.set_rng_state(checkpoint.torch_random_state)
-
+    logger.warning("Using custom -- hardcoded -- fitness function: - power_0 / accuracy_0")
     total_generations: int = config['evolutionary']['generations']
     max_epochs: int = config['evolutionary']['max_epochs']
     for gen in range(checkpoint.last_processed_generation + 1, total_generations):

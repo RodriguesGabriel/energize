@@ -252,9 +252,7 @@ class CustomFitnessFunction(FitnessMetric):
         raise NotImplementedError()
 
     def compute_fitness(self, model: nn.Module, data_loader: DataLoader, device: Device, pre_computed: dict[str, float]) -> float:
-        fitness: float = 0
         for param in self.fitness_function:
-            metric_value: float = 0
             if param["metric"] not in pre_computed:
                 from energize.networks.torch.evaluators import \
                     create_fitness_metric
@@ -266,35 +264,7 @@ class CustomFitnessFunction(FitnessMetric):
                 pre_computed[param["metric"]] = metric.compute_metric(
                     model, data_loader, device)
 
-            metric_value = pre_computed[param["metric"]]
-
-            consider = True
-            if param.get("conditions") is not None:
-                for cond in param["conditions"]:
-                    cond_value: float
-                    if "metric" in cond:
-                        cond_value = pre_computed[cond["metric"]]
-                    else:
-                        cond_value = pre_computed[param["metric"]]
-
-                    if cond["type"] == "greater_than":
-                        consider = consider and cond_value > cond["value"]
-                    elif cond["type"] == "less_than":
-                        consider = consider and cond_value < cond["value"]
-                    else:
-                        raise ValueError(
-                            f"Condition type {cond['type']} not supported")
-
-            if consider:
-                if param["objective"] == "maximize":
-                    fitness += param["weight"] * metric_value
-                elif param["objective"] == "minimize":
-                    fitness += param["weight"] / metric_value
-                else:
-                    raise ValueError(
-                        f"Objective {param['objective']} not supported")
-
-        return fitness
+        return - pre_computed["power_0"] / pre_computed["accuracy_0"]
 
     @classmethod
     def worse_than(cls, this: Fitness, other: Fitness) -> bool:
