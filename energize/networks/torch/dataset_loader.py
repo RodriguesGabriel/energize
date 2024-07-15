@@ -84,6 +84,7 @@ def load_partitioned_dataset(seed: int,
         stratify: Any = targets_tensor if enable_stratify else None
         train_idx, test_idx = train_test_split(train_indices,
                                                test_size=proportions[DatasetType.EVO_TEST],
+                                               train_size=proportions[DatasetType.EVO_TRAIN],
                                                shuffle=True,
                                                stratify=stratify,
                                                random_state=seed)
