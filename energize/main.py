@@ -97,16 +97,17 @@ def main(run: int,
     max_epochs: int = config['evolutionary']['max_epochs']
     for gen in range(checkpoint.last_processed_generation + 1, total_generations):
         # check the total number of epochs (stop criteria)
-        if checkpoint.total_epochs is not None and checkpoint.total_epochs >= max_epochs:
+        if max_epochs > 0 and checkpoint.total_epochs is not None and checkpoint.total_epochs >= max_epochs:
             break
         checkpoint = engine.evolve(run, grammar, gen, checkpoint, config)
 
     # compute testing performance of the fittest network
-    best_network_path: str = build_overall_best_path(
-        config['checkpoints_path'], run)
-    best_test_acc: float = checkpoint.evaluator.testing_performance(
-        best_network_path)
-    logger.info(f"Best test accuracy: {best_test_acc}")
+    if max_epochs > 0:
+        best_network_path: str = build_overall_best_path(
+            config['checkpoints_path'], run)
+        best_test_acc: float = checkpoint.evaluator.testing_performance(
+            best_network_path)
+        logger.info(f"Best test accuracy: {best_test_acc}")
     return checkpoint
 
 

@@ -38,7 +38,7 @@ class PowerConfig:
         gpu = pynvml.nvmlDeviceGetHandleByIndex(0)
         try:
             if pynvml.nvmlDeviceGetComputeMode(gpu) != pynvml.NVML_COMPUTEMODE_EXCLUSIVE_PROCESS:
-                logger.warning(cuda
+                logger.warning(
                     "GPU is not in exclusive compute mode. Attempting to set it now.")
                 pynvml.nvmlDeviceSetComputeMode(
                     gpu, pynvml.NVML_COMPUTEMODE_EXCLUSIVE_PROCESS)

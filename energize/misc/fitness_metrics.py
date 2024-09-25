@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import math
 import statistics as stats
 from abc import ABC, abstractmethod
@@ -12,6 +13,7 @@ from torch.nn.modules import Module
 from torch.utils.data import DataLoader
 
 from energize.misc.enums import Device, FitnessMetricName
+from energize.misc.operations import Operations
 from energize.misc.power import PowerConfig
 
 if TYPE_CHECKING:
@@ -19,7 +21,7 @@ if TYPE_CHECKING:
     from torch.utils.data import DataLoader
 
 __all__ = ["Fitness", "FitnessMetric", "AccuracyMetric",
-           "LossMetric", "PowerMetric", "CustomFitnessFunction"]
+           "LossMetric", "PowerMetric", "CustomFitnessFunction", "Evozero"]
 
 
 class Fitness:
@@ -315,3 +317,151 @@ class CustomFitnessFunction(FitnessMetric):
     @classmethod
     def worst_fitness(cls) -> Fitness:
         return Fitness(-1, cls)
+
+
+class Hook:
+    def __init__(self, module, backward=False):
+        self.input = None
+        self.output = None
+        self.hook = module.register_backward_hook(
+            self.fn) if backward else module.register_forward_hook(self.fn)
+
+    def fn(self, _, _input, _output):
+        self.input = _input
+        self.output = _output
+
+
+class Evozero(FitnessMetric):
+    ops = None
+    operations = None
+    device = None
+
+    def __init__(self, proxy_model: str, batch_size: Optional[int] = None, loss_function: Any = None) -> None:
+        super().__init__(batch_size, loss_function)
+        self.proxy_model = proxy_model
+
+    def compute_metric(self, model: nn.Module, data_loader: DataLoader, device: Device) -> float:
+        if self.operations is None:
+            self.device = device.value
+            self.ops = Operations(self.device)
+            self.operations = dict(inspect.getmembers(
+                self.ops, predicate=inspect.ismethod))
+        return self.score_net(model, self.proxy_model)
+
+    def score_net(self, net, individual):
+        variables = [{} for _ in range(
+            len([i for i in net.modules() if hasattr(i, "weight")]))]
+
+        # generate vars for original weights, weights after pass, weights after pass with noise, weights after pass with perturbation
+        for mode in ("random", "pass", "pass_noise", "pass_perturbation"):
+            self.generate_vars(net, variables, mode)
+            net.zero_grad()
+
+        layers_scores = []
+        for i, m in enumerate((m for m in net.modules() if hasattr(m, "weight"))):
+            try:
+                score = eval(individual, globals(), {
+                    **variables[i],
+                    **self.operations
+                })
+                score = torch.sum(score) / torch.numel(score)
+                layers_scores.append(score.item())
+            except RuntimeError as e:
+                pass
+            except TypeError as e:
+                print(individual)
+
+        if len(layers_scores) == 0:
+            return None
+
+        score = sum(layers_scores) / len(layers_scores)
+
+        if np.isnan(score) or np.isinf(score):
+            return self.worst_fitness()
+
+        return score
+
+    def initialize_net(self, net: nn.Module) -> nn.Module:
+        net = net.to(self.device)
+
+        for m in net.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(
+                    m.weight, mode="fan_out", nonlinearity="relu")
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.constant_(m.bias, 0)
+
+        return net
+
+    def generate_vars(self, net: nn.Module, variables: list, mode: str):
+        def wrap(m):
+            if m is None:
+                return self.ops.default_tensor()
+            if isinstance(m, tuple):
+                m = next(i for i in m if i is not None)
+            return m.clone().detach()
+
+        modules_with_weights = [
+            i for i in net.modules() if hasattr(i, "weight")]
+
+        # pass sample
+        if mode != "random":
+            sample = torch.randn((16, 3, 32, 32)).to(self.device)
+            sample.requires_grad = True
+
+            if mode == "pass_noise":
+                sample = torch.autograd.Variable(
+                    torch.randn(sample.shape), requires_grad=True)
+            elif mode == "pass_perturbation":
+                sample = sample + (0.1**0.5) * \
+                    torch.randn(sample.shape).to(self.device)
+
+            sample = sample.to(self.device)  # TODO needed?
+
+            forward_hooks = [Hook(m, False)
+                             for m in modules_with_weights]
+            backward_hooks = [Hook(m, True) for m in modules_with_weights]
+            out, _ = net(sample)
+            out.backward(torch.ones_like(out))
+
+        for i, m in enumerate(modules_with_weights):
+            variables[i][f"{mode}_wt"] = wrap(m.weight)
+            variables[i][f"{mode}_grad"] = wrap(m.weight.grad)
+            if mode != "random":
+                variables[i][f"{mode}_fwd_input"] = wrap(
+                    forward_hooks[i].input)
+                variables[i][f"{mode}_fwd_output"] = wrap(
+                    forward_hooks[i].output)
+                variables[i][f"{mode}_bwd_input"] = wrap(
+                    backward_hooks[i].input)
+                variables[i][f"{mode}_bwd_output"] = wrap(
+                    backward_hooks[i].output)
+
+        return variables
+
+    @classmethod
+    def worse_than(cls, this: Fitness, other: Fitness) -> bool:
+        return this.value < other.value
+
+    @classmethod
+    def better_than(cls, this: Fitness, other: Fitness) -> bool:
+        return this.value > other.value
+
+    @classmethod
+    def worse_or_equal_than(cls, this: Fitness, other: Fitness) -> bool:
+        return this.value <= other.value
+
+    @classmethod
+    def better_or_equal_than(cls, this: Fitness, other: Fitness) -> bool:
+        return this.value >= other.value
+
+    @classmethod
+    def worst_fitness(cls) -> Fitness:
+        return Fitness(-1.0, cls)

@@ -67,7 +67,8 @@
                         "accuracy",
                         "loss",
                         "power",
-                        "energy"
+                        "energy",
+                        "evozero"
                     ]
                 }
             ]
@@ -164,7 +165,8 @@
                     "$ref": "#/$defs/natural_number"
                 },
                 "max_epochs": {
-                    "$ref": "#/$defs/natural_number"
+                    "type": "number",
+                    "minimum": 0
                 },
                 "mutation": {
                     "type": "object",
@@ -217,6 +219,21 @@
                 },
                 "fitness_metric": {
                     "$ref": "#/$defs/metrics"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "if": {
+                    "properties": {
+                        "fitness_metric": {
+                            "const": "evozero"
+                        }
+                    }
+                },
+                "then": {
+                    "required": [
+                        "model"
+                    ]
                 },
                 "fitness_function": {
                     "type": "array",
