@@ -37,6 +37,15 @@ class EvaluationMetrics:
             power=None
         )
 
+    def dominates(self, other: EvaluationMetrics):
+        self_power = self.power["test"]["full"]["power"]["mean"]
+        other_power = other.power["test"]["full"]["power"]["mean"]
+
+        dominates_accuracy = self.accuracy >= other.accuracy
+        dominates_power = self_power <= other_power
+
+        return dominates_accuracy and dominates_power and (self.accuracy > other.accuracy or self_power < other_power)
+
     def list_fields(self) -> List[str]:
         return tuple(field.name for field in fields(self))
 

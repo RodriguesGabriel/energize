@@ -1,6 +1,10 @@
 import logging
 import random
+from collections import defaultdict, namedtuple
 from copy import deepcopy
+from itertools import chain
+from operator import attrgetter
+from turtle import distance
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -256,6 +260,88 @@ def _lexicase_auto_epsilon_selection(population: List[Individual], metrics: List
     return random.choice(candidates)
 
 
+def fast_non_dominated_sort(individuals: List[Individual]) -> List[List[Individual]]:
+    assert len(individuals) > 0
+
+    n = [0] * len(individuals)
+    rank = [0] * len(individuals)
+    S = [[] for _ in individuals]
+    front = [[]]
+
+    for idx_p, p in enumerate(individuals):
+        S[idx_p] = []
+        n[idx_p] = 0
+        for idx_q, q in enumerate(individuals):
+            if p.metrics.dominates(q.metrics):
+                if idx_q not in S[idx_p]:
+                    S[idx_p].append(idx_q)
+            elif q.metrics.dominates(p.metrics):
+                n[idx_p] += 1
+        if n[idx_p] == 0:
+            rank[idx_p] = 0
+            if idx_p not in front[0]:
+                front[0].append(idx_p)
+
+    i = 0
+    while front[i]:
+        Q = []
+        for p in front[i]:
+            for q in S[p]:
+                n[q] -= 1
+                if n[q] == 0:
+                    rank[q] = i + 1
+                    if q not in Q:
+                        Q.append(q)
+        i += 1
+        front.append(Q)
+
+    del front[-1]
+    return front
+
+
+def calculate_crowding_dist(individuals):
+    assert len(individuals) > 0
+    for ind in individuals:
+        ind.crowding_dist = 0
+
+    individuals[0].crowding_dist = float('inf')
+    individuals[-1].crowding_dist = float('inf')
+
+    sorted_accuracy = sorted(individuals, key=lambda x: x.metrics.accuracy)
+    for i in range(1, len(individuals) - 2):
+        individuals[i].crowding_dist += (sorted_accuracy[i + 1].metrics.accuracy -
+                                         sorted_accuracy[i - 1].metrics.accuracy) / \
+            (sorted_accuracy[-1].metrics.accuracy -
+             sorted_accuracy[0].metrics.accuracy)
+
+    sorted_power = sorted(
+        individuals, key=lambda x: x.metrics.power["test"]["full"]["power"]["mean"])
+
+    for i in range(1, len(individuals) - 2):
+        individuals[i].crowding_dist += (sorted_power[i + 1].metrics.power["test"]["full"]["power"]["mean"] -
+                                         sorted_power[i - 1].metrics.power["test"]["full"]["power"]["mean"]) / \
+            (sorted_power[-1].metrics.power["test"]["full"]["power"]["mean"] -
+             sorted_power[0].metrics.power["test"]["full"]["power"]["mean"])
+
+def _nsga2_selection(population: List[Individual], k: int) -> Individual:
+    """"
+    [Deb2002] Deb, Pratab, Agarwal, and Meyarivan, "A fast elitist
+       non-dominated sorting genetic algorithm for multi-objective
+       optimization: NSGA-II", 2002.
+
+    https://github.com/haris989/NSGA-II/blob/master/NSGA%20II.py
+    """
+    candidates = [ind for ind in population if ind.metrics.is_valid_solution]
+
+    pareto_fronts = fast_non_dominated_sort(candidates)
+
+    for front in pareto_fronts:
+        calculate_crowding_dist(front)
+
+    ...
+    return
+
+
 def select(population: List[Individual],
            method: str,
            method_params: Optional[dict],
@@ -277,15 +363,18 @@ def select(population: List[Individual],
         parent = population[idx_max]
     elif method == 'lexicase':
         parent = _lexicase_selection(population, method_params['metrics'])
-        assert parent in population
-        idx_max = population.index(parent)
     elif method == 'lexicase-auto-epsilon':
-        parent = _lexicase_auto_epsilon_selection(population, method_params['metrics'])
-        assert parent in population
-        idx_max = population.index(parent)
+        parent = _lexicase_auto_epsilon_selection(
+            population, method_params['metrics'])
+    elif method == "nsga2":
+        parent = _nsga2_selection(population, 1)
     else:
         raise NotImplementedError(f"Method {method} not implemented")
 
+    if method != "fittest":
+        idx_max = population.index(parent)
+
+    assert parent in population
     assert parent.fitness is not None
     logger.info("Parent: idx: %d, id: %d", idx_max, parent.id)
     logger.info("Training times: %s", str(
