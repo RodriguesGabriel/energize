@@ -2,6 +2,7 @@
 experiments/
 data/
 config_files/
+configs/
 grammars/
 energize/train_longer.py
 models/

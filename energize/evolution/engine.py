@@ -10,6 +10,7 @@ from energize.config import Config
 from energize.evolution import Grammar, Individual, operators
 from energize.misc import Checkpoint, persistence
 from energize.misc.fitness_metrics import Fitness
+from energize.misc.enums import FitnessMetricName
 from energize.networks.module import Module
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,15 @@ def evolve(run: int,
 
     logger.info("Performing generation: %d", generation)
     population: List[Individual]
+
+    if generation % 10 == 0 or generation == 149:
+        checkpoint.evaluator.fitness_metric_name = FitnessMetricName('evozero')
+        config['network']['learning']['default_train_time'] = 0
+    else:
+        checkpoint.evaluator.fitness_metric_name = FitnessMetricName('accuracy')
+        config['network']['learning']['default_train_time'] = 300
+
+
     if generation == 0:
         logger.info("Creating the initial population")
 
