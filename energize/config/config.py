@@ -58,8 +58,15 @@ class Config():
             shutil.copyfile(origin_filepath, destination_filepath)
 
     def _validate_config(self) -> None:
-        schema_path: str = os.path.join("energize", "config", "schema.json")
-        schema: Any = self._load(schema_path)
+        schema_dir = os.path.dirname(__file__)
+        for fname in ("schema.json", "schema.yaml"):
+            schema_path = os.path.join(schema_dir, fname)
+            if os.path.isfile(schema_path):
+                schema: Any = self._load(schema_path)
+            break
+        else:
+            raise FileNotFoundError(
+            f"Schema file not found in package directory: {os.path.join(schema_dir, 'schema.json|schema.yaml')}")
         validate(self.config, schema)
         logger.info("Type of training: %s",
                     self.config['network']['learning']['learning_type'])
