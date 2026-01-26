@@ -4,17 +4,21 @@ metadata:
   name: energize-job
   labels:
     app: energize
+    kai.scheduler/queue: cisuc-regular
+    scheduling.run.ai/queue-name: cisuc-regular
 spec:
   template:
     metadata:
       labels:
         app: energize
+        kai.scheduler/queue: cisuc-regular
+        scheduling.run.ai/queue-name: cisuc-regular
     spec:
       restartPolicy: Never
       containers:
       - name: energize
-        image: docker.temp/energize:latest
-        imagePullPolicy: Never
+        image: registry.ml-cluster.dei.uc.pt/library/energize:latest
+        imagePullPolicy: IfNotPresent
         resources:
           limits:
             nvidia.com/gpu: "1"
@@ -22,7 +26,7 @@ spec:
             nvidia.com/gpu: "1"
         volumeMounts:
         - name: config-volume
-          mountPath: /home/example
+          mountPath: /home/config
           readOnly: true
         - name: experiments-volume
           mountPath: /home/experiments
@@ -34,9 +38,9 @@ spec:
         - name: NVIDIA_DRIVER_CAPABILITIES
           value: "compute,utility"
         command: ["/bin/bash"]
-        args: 
+        args:
         - "-c"
-        - "ls -la && ls -la example/ && /opt/conda/envs/energize/bin/python -u -m energize.main -d mnist -c example/example_config.json -g example/energize.grammar --run 0 --gpu-enabled"
+        - "nvidia-smi && ls -la /home && ls -la /home/example/ && ls -la /home/config/ && cat /home/config/example_config.json && /opt/conda/envs/energize/bin/python -u -m energize.main -d mnist -c /home/config/example_config.json -g /home/config/energize.grammar --run 0 --gpu-enabled"
       volumes:
       - name: config-volume
         configMap:
