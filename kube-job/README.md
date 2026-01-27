@@ -87,7 +87,7 @@ To modify the configuration:
 
 ### Common Issues
 
-1. **Image Pull Error**: Ensure the Docker image `docker.temp/energize:latest` is available
+1. **Image Pull Error**: Ensure the Docker image `registry.ml-cluster.dei.uc.pt/library/energize:latest` is available
 2. **GPU Not Available**: Verify NVIDIA device plugin is installed and GPUs are available
 3. **Permission Issues**: Check if the container has proper permissions to access mounted volumes
 

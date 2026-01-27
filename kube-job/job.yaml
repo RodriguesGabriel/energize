@@ -1,12 +1,13 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: energize-job
+  name: energize-job-with-nfs
   labels:
     app: energize
     kai.scheduler/queue: cisuc-regular
     scheduling.run.ai/queue-name: cisuc-regular
 spec:
+  backoffLimit: 1
   template:
     metadata:
       labels:
@@ -18,7 +19,7 @@ spec:
       containers:
       - name: energize
         image: registry.ml-cluster.dei.uc.pt/library/energize:latest
-        imagePullPolicy: IfNotPresent
+#        imagePullPolicy: IfNotPresent  # careful with this, it will not necessarily pull the image every time the job is run
         resources:
           limits:
             nvidia.com/gpu: "1"
@@ -30,9 +31,14 @@ spec:
           readOnly: true
         - name: experiments-volume
           mountPath: /home/experiments
+#          subPathExpr: grodrigues/$(JOB_RUN_NAME)
         env:
+        - name: JOB_RUN_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         - name: CUDA_VISIBLE_DEVICES
-          value: "0"
+          value: "all"
         - name: NVIDIA_VISIBLE_DEVICES
           value: "all"
         - name: NVIDIA_DRIVER_CAPABILITIES
@@ -40,10 +46,26 @@ spec:
         command: ["/bin/bash"]
         args:
         - "-c"
-        - "nvidia-smi && ls -la /home && ls -la /home/example/ && ls -la /home/config/ && cat /home/config/example_config.json && /opt/conda/envs/energize/bin/python -u -m energize.main -d mnist -c /home/config/example_config.json -g /home/config/energize.grammar --run 0 --gpu-enabled"
+        - >-
+          nvidia-smi &&
+          export EXP_DIR="/home/experiments/grodrigues/${JOB_RUN_NAME}" &&
+          echo "Creating directory: ${EXP_DIR}" &&
+          mkdir -p "${EXP_DIR}" &&
+          cd "${EXP_DIR}" &&
+          export PYTHONPATH=$PYTHONPATH:/home &&
+          sed "s|/home/experiments|${EXP_DIR}|g" /home/config/example_config.json > /tmp/config.json &&
+          /opt/conda/envs/energize/bin/python -u -m energize.main -d mnist -c /tmp/config.json -g /home/config/energize.grammar --run 0 --gpu-enabled
+      securityContext:
+        runAsUser: 30124
+        runAsGroup: 30124
+        fsGroup: 30124
+        supplementalGroups: [30121, 30122, 30123, 30124, 30125, 30126, 30127, 30128]
       volumes:
       - name: config-volume
         configMap:
           name: energize-config
       - name: experiments-volume
-        emptyDir: {}
+        nfs:
+          server: 10.3.10.253
+          path: /bai
+          readOnly: false
