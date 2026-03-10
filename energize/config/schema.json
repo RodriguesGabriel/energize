@@ -121,6 +121,13 @@
                 "ensure_gpu_exclusivity": {
                     "type": "boolean"
                 },
+                "freeze_layers": {
+                    "type": "string",
+                    "enum": [
+                        "all_post_extra_outputs",
+                        "none"
+                    ]
+                },
                 "seed_model": {
                     "type": "object",
                     "properties": {
@@ -141,6 +148,7 @@
                 "model_partition",
                 "ensure_gpu_exclusivity"
             ],
+            "optional": ["freeze_layers"],
             "if": {
                 "properties": {
                     "model_partition": {

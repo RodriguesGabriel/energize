@@ -168,3 +168,18 @@ class LegacyNetwork(EvolvedNetwork):
 
     def forward(self, x: Tensor) -> Optional[Tensor]:
         return super().forward(x)
+    
+    def freeze_layers(self, additional_output_idx: List[LayerId]) -> None:
+        # freeze layers that are after the additional output indices
+        required_layers = set()
+        for output_id in additional_output_idx:
+            required_layers.update(self.get_connected_layers(output_id))
+            required_layers.add(output_id)
+
+        for idx, layer_name in self.id_layername_map.items():
+            if idx not in required_layers:
+                layer = getattr(self, layer_name)
+                for param in layer.parameters():
+                    param.requires_grad = False
+
+                

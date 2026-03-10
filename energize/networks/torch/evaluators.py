@@ -394,6 +394,10 @@ class LegacyEvaluator(BaseEvaluator):
                                                               self.power_config))
 
             if self.power_config and self.power_config.get("model_partition"):
+                # freeze layers that do not belong to the compact model
+                if "freeze_layers" in self.power_config and self.power_config["freeze_layers"] == "all_post_extra_outputs":
+                    logger.info(f"Freezing layers after additional outputs: {model_builder.additional_output_idx}. Mode {self.power_config['freeze_layers']}")
+                    torch_model.freeze_layers(model_builder.additional_output_idx)
                 trainer.multi_output_train(
                     self.power_config["model_partition_n"])
             else:
