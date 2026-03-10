@@ -5,6 +5,12 @@ config_files/
 grammars/
 energize/train_longer.py
 models/
+analysis/figures
+sync_crai.sh
+energize_bench/*.npy
+energize_bench/*.csv
+*.pt
+**/.DS_Store
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
